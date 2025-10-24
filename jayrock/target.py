@@ -425,26 +425,10 @@ class Target:
             delta=self.visibility.delta.values[idx_date_obs],
             phase=self.visibility.phase.values[idx_date_obs],
         )
-        print(geom)
         target_neatm = self.neatm()
         wave = np.linspace(5.0, 28.0, 200)
         flux = target_neatm.fluxd(wave, geom)
         return wave, flux
-        # from pandeia.engine.astro_spectrum import AstroSpectrum
-        # from pandeia.engine.source import Source
-        #
-        # # TODO: Make this a function
-        # if date_obs is None:
-        #     if not hasattr(self, "visibility"):
-        #         raise AttributeError(
-        #             "Run query_visibility() and query_thermal_flux() before build_thermal_spectrum()."
-        #         )
-        #     idx_highest = self.visibility.thermal_flux.idxmax()
-        #     date_obs = self.visibility.date_obs.values[idx_highest]
-        #
-        # config_thermal = self._build_config_source_thermal(date_obs)
-        # source_thermal = Source(telescope="jwst", config=config_thermal)
-        # return AstroSpectrum(source_thermal)
 
     def build_scene(self, date_obs):
         """Build scene for ETC.
