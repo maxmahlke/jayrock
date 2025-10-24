@@ -4,11 +4,12 @@ from astropy.time import Time
 from astroquery.jplhorizons import Horizons
 from jwst_gtvt.jwst_tvt import Ephemeris
 import numpy as np
+from pandeia.engine.astro_spectrum import AstroSpectrum
+from pandeia.engine.source import Source
 import requests
 from rich import print
 import rocks
 
-import astro
 import jayrock
 
 
@@ -63,7 +64,7 @@ class PatchedEphemeris(Ephemeris):
         return self.dataframe
 
 
-class Target:
+class Target(rocks.Rock):
     """Define target of observation."""
 
     def __init__(self, name):
@@ -73,15 +74,16 @@ class Target:
         name : str
             Name or desingation of the target to observe. Passed to rocks.id for identification.
         """
-        self.rock = rocks.Rock(name)
+        super().__init__(name)
+        # self.rock = rocks.Rock(name)
 
-        if not self.rock.is_valid:
-            jayrock.logging.logger.warning(
-                "Functionality is limited if target is unknown."
-            )
-            self.name = name
-        else:
-            self.name = self.rock.name
+        # if not self.rock.is_valid:
+        #     jayrock.logging.logger.warning(
+        #     "Functionality is limited if target is unknown."
+        # )
+        #     self.name = name
+        # # else:
+        #     self.name = self.rock.name
 
     def __repr__(self):
         return f"Target(name={self.name})"
@@ -130,7 +132,7 @@ class Target:
 
         # ------
         # Add thermal flux
-        target_neatm = self.neatm()
+        target_neatm = self.compute_neatm()
 
         # Thermal flux at 15 micron in mJy
         vis["thermal_flux"] = vis.apply(
@@ -189,7 +191,7 @@ class Target:
             return False
         return True
 
-    def neatm(self, diameter=None, albedo=None, beaming=1.0, emissivity=0.9):
+    def compute_neatm(self, diameter=None, albedo=None, beaming=1.0, emissivity=0.9):
         """Build NEATM model for the target.
 
         Parameters
@@ -324,11 +326,9 @@ class Target:
 
         Returns
         -------
-        spectrum : AstroSpectrum
-            Reflectance spectrum of the target at the given date.
+        np.ndarray, np.ndarray
+            Wavelengths (micron) and fluxes (mJy) of the reflectance spectrum.
         """
-        from pandeia.engine.astro_spectrum import AstroSpectrum
-        from pandeia.engine.source import Source
 
         # TODO: Make this a function
         if date_obs is None:
@@ -341,7 +341,8 @@ class Target:
 
         config_reflected = self._build_config_source_reflected(date_obs)
         source_reflected = Source(telescope="jwst", config=config_reflected)
-        return AstroSpectrum(source_reflected)
+        spec = AstroSpectrum(source_reflected)
+        return spec.wave, spec.flux * 1000  # mJy
 
     def _build_config_source_thermal(self, date_obs):
         """Configure the thermal source of the target.
@@ -409,8 +410,8 @@ class Target:
 
         Returns
         -------
-        spectrum : AstroSpectrum
-            Thermal spectrum of the target at the given date.
+        np.ndarray, np.ndarray
+            Wavelengths (micron) and fluxes (mJy) of the thermal spectrum.
         """
         if date_obs is None:
             if not hasattr(self, "visibility"):
@@ -425,7 +426,7 @@ class Target:
             delta=self.visibility.delta.values[idx_date_obs],
             phase=self.visibility.phase.values[idx_date_obs],
         )
-        target_neatm = self.neatm()
+        target_neatm = self.compute_neatm()
         wave = np.linspace(5.0, 28.0, 200)
         flux = target_neatm.fluxd(wave, geom)
         return wave, flux
@@ -457,7 +458,7 @@ class Target:
         thermal = _build_config_source_thermal(date_obs)
         return [reflected, thermal]
 
-    def plot_spectrum(self, reflected=True, thermal=True, date_obs=None):
+    def plot_spectrum(self, **kwargs):
         """Plot the reflectance and/or thermal spectrum of the target.
 
         Parameters
@@ -469,41 +470,12 @@ class Target:
         date_obs : str, optional
             Date of observation in ISO format (YYYY-MM-DD). If None, uses the
             date of brightest apparent V magnitude. Default is None.
+        at : str or list of str, optional
+            Conditions at which to plot the spectrum. Choose from ['vmag_min', 'vmag_max',
+            'thermal_max', 'thermal_min']. If None, uses date_obs. Default is None.
         """
-        import matplotlib.pyplot as plt
 
-        plt.style.use("default")
+        if not hasattr(self, "visibility"):
+            raise AttributeError("Run query_visibility() before plot_spectrum().")
 
-        if date_obs is None:
-            if not hasattr(self, "visibility"):
-                raise AttributeError("Run query_visibility() before plot_spectrum().")
-            idx_brightest = self.visibility.V.idxmin()
-            date_obs = self.visibility.date_obs.values[idx_brightest]
-            print(
-                f"Using date of brightest Vmag: {date_obs}, Vmag={self.visibility.V.min():.2f}"
-            )
-
-        if reflected:
-            spec_reflected = self.compute_reflectance_spectrum(date_obs)
-            plt.plot(
-                spec_reflected.wave,
-                spec_reflected.flux,
-                label="Reflected",
-                color="blue",
-            )
-
-        if thermal:
-            spec_thermal = self.compute_thermal_spectrum(date_obs)
-            plt.plot(
-                spec_thermal.wave,
-                spec_thermal.flux,
-                label="Thermal",
-                color="red",
-            )
-
-        plt.xlabel("Wavelength (micron)")
-        plt.ylabel("Flux (mJy)")
-        plt.title(f"{self.name} Spectrum on {date_obs}")
-        plt.legend()
-        plt.grid()
-        plt.show()
+        jayrock.plotting.plot_spectrum(self, **kwargs)

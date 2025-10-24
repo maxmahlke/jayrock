@@ -1,5 +1,7 @@
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+
 
 COLORS = {
     "nirspec": {
@@ -14,6 +16,27 @@ COLORS = {
         "ch4": {"short": "#064789", "medium": "#427aa1", "long": "#8d99ae"},
     },
 }
+
+
+def get_colors(N, cmap="turbo"):
+    """
+    Get a list of unique colors.
+
+    Parameters
+    ----------
+    N : int
+        The number of unique colors to return.
+    cmap : str
+        The matplotlib colormap to sample. Default is 'turbo'
+
+    Returns
+    -------
+    list of str
+        A list of color-hexcodes.
+
+    """
+    COLORS = plt.get_cmap(cmap, N)
+    return [mpl.colors.rgb2hex(COLORS(i)[:3]) for i in range(N)]
 
 
 def plot_snr(obs):
@@ -143,3 +166,84 @@ def compare_observations(obs, which="snr", label=None):
     ax.set(xlabel=r"Wavelength / \textmu m", ylabel="SNR")
     ax.set(title=f"Comparison")
     fig.savefig(ob.PATH_INST / f"compare_{which}_{label}.png")
+
+
+def plot_spectrum(target, reflected=True, thermal=True, date_obs=None, at=None):
+    """Plot the spectrum of the target.
+
+    Parameters
+    ----------
+    target : Target
+        Target to plot the spectrum for.
+    reflected : bool, optional
+        Whether to plot the reflectance spectrum. Default is True.
+    thermal : bool, optional
+        Whether to plot the thermal spectrum. Default is True.
+    date_obs : str, optional
+        Date of observation in ISO format (YYYY-MM-DD). If None, uses the
+        date of brightest apparent V magnitude. Default is None.
+    at : str or list of str, optional
+        Conditions at which to plot the spectrum. Choose from ['vmag_min', 'vmag_max',
+        'thermal_max', 'thermal_min']. If None, uses date_obs. Default is None.
+    """
+    plt.style.use("default")
+
+    # Get list of dates to plot
+    dates_obs = []
+
+    if date_obs is not None:
+        dates_obs.append((date_obs, ""))
+
+    if not isinstance(at, list) and at is not None:
+        at = [at]
+
+    if at is not None:
+        VALID_AT = ["vmag_min", "vmag_max", "thermal_max", "thermal_min"]
+
+        for at_ in at:
+            if at_ not in VALID_AT:
+                raise ValueError(
+                    f"Invalid value for at: {at_}. Choose from {VALID_AT}."
+                )
+
+            prop, cond = at_.split("_")
+            prop = "V" if prop == "vmag" else "thermal_flux"
+
+            if cond == "min":
+                idx = target.visibility[prop].idxmin()
+            elif cond == "max":
+                idx = target.visibility[prop].idxmax()
+
+            date_at = target.visibility.date_obs.values[idx]
+            dates_obs.append((date_at, at_))
+
+    if date_obs is None and at is None:
+        idx = target.visibility.V.idxmin()
+        jayrock.logging.info(f"Plotting spectrum at date of brightest V magnitude.")
+        dates_obs.append((target.visibility.date_obs.values[idx], "vmag_min"))
+
+    fig, ax = plt.subplots(constrained_layout=True)
+
+    COLORS_REFL = ["steelblue"] + get_colors(len(dates_obs), cmap="winter")
+    COLORS_THERM = ["firebrick"] + get_colors(len(dates_obs), cmap="autumn")
+    LS = ["-", "--", "-.", ":", (0, (3, 1, 1, 1))]
+
+    for i, (date_obs, at_) in enumerate(dates_obs):
+        suffix = f"- {date_obs} - [{at_}]" if at_ != "" else f" - {date_obs}"
+        ls = LS[i % len(LS)]
+        crefl = COLORS_REFL[i % len(COLORS_REFL)]
+        ctherm = COLORS_THERM[i % len(COLORS_THERM)]
+
+        if reflected:
+            wave_refl, flux_refl = target.compute_reflectance_spectrum(date_obs)
+            ax.plot(wave_refl, flux_refl, label=f"Reflected{suffix}", c=crefl, ls=ls)
+
+        if thermal:
+            wave_therm, flux_therm = target.compute_thermal_spectrum(date_obs)
+            ax.plot(wave_therm, flux_therm, label=f"Thermal{suffix}", c=ctherm, ls=ls)
+
+    ax.set(xlabel="Wavelength / micron", ylabel="Flux / mJy", xlim=(0, 28))
+    ax.set_title(f"Spectrum of ({target.rock.number}) {target.name}")
+    ax.legend()
+    ax.grid()
+    plt.show()
