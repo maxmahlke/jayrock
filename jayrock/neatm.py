@@ -191,6 +191,12 @@ def planck(wave, T):
 
     c1 = 3.9728913665386057e-25  # J m
     c2 = 0.0143877695998  # K m
-    a = np.exp(c2 / wave / T)
+
+    # Clip the argument to a safe maximum value (e.g., 700.0)
+    # 700.0 is safe from overflow (limit is ~709.78)
+    exp_arg = c2 / (wave * T)
+    exp_arg = np.clip(exp_arg, a_min=None, a_max=700.0)
+
+    a = np.exp(exp_arg)
     B = c1 / (wave**3 * (a - 1.0))
     return B
