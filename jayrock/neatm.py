@@ -164,8 +164,8 @@ class NEATM:
         )  # W/m^2/Hz
 
         fluxd = fluxd * u.Unit("W / (m2 Hz)")
-        equiv = u.spectral_density(u.um, wave)
-        fluxd = fluxd.to("mJy", equivalencies=equiv)
+        equiv = u.spectral_density(wave * u.um)
+        fluxd = fluxd.to("mJy", equivalencies=equiv).value
         if len(fluxd) == 1:
             return fluxd[0]
         else:
