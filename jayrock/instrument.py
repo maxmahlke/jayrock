@@ -8,6 +8,101 @@ from pandeia.engine.calc_utils import build_default_calc
 
 import jayrock
 
+URLS = {
+    "nirspec": {
+        "detector": "https://jwst-docs.stsci.edu/jwst-near-infrared-spectrograph/nirspec-observing-strategies/nirspec-detector-recommended-strategies",
+        "dither": "https://jwst-docs.stsci.edu/jwst-near-infrared-spectrograph/nirspec-operations/nirspec-dithers-and-nods",
+    }
+}
+
+
+class Detector:
+    """Detector of observation."""
+
+    def __init__(self, config, instrument, mode):
+        """
+        Parameters
+        ----------
+        config : dict
+            instrument['detector'] pandeia configuration dictionary.
+        """
+        self._ngroup = config["ngroup"]
+        self._nint = config["nint"]
+        self._nexp = config["nexp"]
+        self._readout_pattern = config["readout_pattern"]
+
+        self.instrument = instrument
+        self.mode = mode
+
+    @property
+    def ngroup(self):
+        return self._ngroup
+
+    @ngroup.setter
+    def ngroup(self, ngroup):
+        if ngroup < 5:
+            jayrock.logging.logger.warning(
+                f"Setting 'ngroup={ngroup}'. 'ngroup' values below 5 are strongly discouraged."
+                f" More information:\n{URLS[self.instrument]['detector']}"
+            )
+        if ngroup > 100 and self.instrument == "nirspec":
+            jayrock.logging.logger.warning(
+                f"Setting 'ngroup={ngroup}'. 'ngroup' values larger than 100 are discouraged. Consider increasing 'nint' instead."
+                f" More information:\n{URLS[self.instrument]['detector']}"
+            )
+        self._ngroup = ngroup
+
+    @property
+    def nint(self):
+        return self._nint
+
+    @nint.setter
+    def nint(self, nint):
+        self._nint = nint
+
+    @property
+    def nexp(self):
+        return self._nexp
+
+    @nexp.setter
+    def nexp(self, nexp):
+        if nexp == 1:
+            jayrock.logging.logger.warning(
+                f"Setting 'nexp={nexp}'. Dithering ('nexp' > 1) is generally recommended."
+                f" More information:\n{URLS[self.instrument]['dither']}"
+            )
+
+        self._nexp = nexp
+
+    @property
+    def readout_pattern(self):
+        return self._readout_pattern
+
+    @readout_pattern.setter
+    def readout_pattern(self, rdpt):
+        rdpt = rdpt.lower()
+
+        # ------
+        # Sanity checks
+
+        # NIRSpec
+        RDPT_NIRSPEC = ["nrs", "nrsrapid", "nrsirs2", "nrsirs2rapid"]
+
+        if self.instrument == "nirspec":
+            if rdpt not in RDPT_NIRSPEC:
+                raise ValueError(
+                    f"Invalid 'readout_pattern' for NIRSpec: {rdpt}. Choose from {RDPT_NIRSPEC}."
+                )
+
+            if rdpt != "nrsirs2rapid":
+                jayrock.logging.logger.warning(
+                    f"Setting 'readout_pattern={rdpt}'. The 'nrsirs2rapid' readout pattern is "
+                    "recommended for NIRSpec observations."
+                    f" More information:\n{URLS[self.instrument]['detector']}"
+                )
+
+        self._readout_pattern = rdpt
+
 
 class Instrument:
     """Define instrument of observation."""
