@@ -30,6 +30,7 @@ class Detector:
         self._nint = config["nint"]
         self._nexp = config["nexp"]
         self._readout_pattern = config["readout_pattern"]
+        self._subarray = config["subarray"]
 
         self.instrument = instrument
         self.mode = mode
@@ -59,6 +60,14 @@ class Detector:
     @nint.setter
     def nint(self, nint):
         self._nint = nint
+
+    @property
+    def subarray(self):
+        return self._subarray
+
+    @subarray.setter
+    def nint(self, subarray):
+        self._subarray = subarray
 
     @property
     def nexp(self):
