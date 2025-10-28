@@ -443,8 +443,9 @@ class Target(rocks.Rock):
         Returns
         -------
         list of str or str
-            List of possible observation dates. If at is not None, returns only str of date_obs
-            matching the condition.
+            List of possible observation dates. If at is a str or list of
+            length 1, returns a single str. If at is a list of length >1,
+            returns a list.
         """
 
         if at is not None:
@@ -470,6 +471,8 @@ class Target(rocks.Rock):
                     idx = self.ephemeris[prop].idxmax()
 
                 date_obs.append(self.ephemeris.date_obs.values[idx])
+            if len(date_obs) == 1:
+                return date_obs[0]
             return date_obs
         return self.ephemeris.date_obs.tolist()
 
