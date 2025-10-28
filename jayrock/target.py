@@ -426,10 +426,52 @@ class Target(rocks.Rock):
             delta=self.visibility.delta.values[idx_date_obs],
             phase=self.visibility.phase.values[idx_date_obs],
         )
-        target_neatm = self.compute_neatm()
-        wave = np.linspace(5.0, 28.0, 200)
-        flux = target_neatm.fluxd(wave, geom)
-        return wave, flux
+        neatm = self.compute_neatm()
+        flux = neatm.fluxd(WAVE_GRID, geom)
+        return WAVE_GRID, flux
+
+    def get_date_obs(self, at=None):
+        """Get list of possible observation dates. Optionally select a date
+        based on a condition.
+
+        Parameters
+        ----------
+        at : str or list of str, optional
+           Condition to select date_obs at.
+           Must be one of ['vmag_min', 'vmag_max', 'thermal_min', 'thermal_max'].
+
+        Returns
+        -------
+        list of str or str
+            List of possible observation dates. If at is not None, returns only str of date_obs
+            matching the condition.
+        """
+
+        if at is not None:
+            if not isinstance(at, list):
+                at = [at]
+
+            date_obs = []
+
+            for at_ in at:
+                VALID_AT = ["vmag_min", "vmag_max", "thermal_max", "thermal_min"]
+
+                if at_ not in VALID_AT:
+                    raise ValueError(
+                        f"Invalid value for at: {at_}. Choose from {VALID_AT}."
+                    )
+
+                prop, cond = at_.split("_")
+                prop = "V" if prop == "vmag" else "thermal"
+
+                if cond == "min":
+                    idx = self.ephemeris[prop].idxmin()
+                elif cond == "max":
+                    idx = self.ephemeris[prop].idxmax()
+
+                date_obs.append(self.ephemeris.date_obs.values[idx])
+            return date_obs
+        return self.ephemeris.date_obs.tolist()
 
     def build_scene(self, date_obs):
         """Build scene for ETC.
