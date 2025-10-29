@@ -3,21 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-COLORS = {
-    "nirspec": {
-        "g140m": {"f100lp": "#0b132b", "f070lp": "#1c2541", "f170lp": "#3a506b"},
-        "g235m": {"f170lp": "#092327", "f140m": "#0b5351", "f290lp": "#00a9a5"},
-        "g395m": {"f290lp": "#4f6367", "f170lp": "#7a9e9f", "f100lp": "#b8d8d8"},
-    },
-    "miri": {
-        "ch1": {"short": "#0b132b", "medium": "#1c2541", "long": "#3a506b"},
-        "ch2": {"short": "#092327", "medium": "#0b5351", "long": "#00a9a5"},
-        "ch3": {"short": "#4f6367", "medium": "#7a9e9f", "long": "#b8d8d8"},
-        "ch4": {"short": "#064789", "medium": "#427aa1", "long": "#8d99ae"},
-    },
-}
-
-
 def get_colors(N, cmap="turbo"):
     """
     Get a list of unique colors.
