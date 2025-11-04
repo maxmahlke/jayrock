@@ -1,0 +1,29 @@
+[project]
+name = "jayrock"
+version = "0.0.1"
+description = "JWST observations planning for asteroids."
+authors = [{name="Max Mahlke", email="max.mahlke@rwth-aachen.de"}]
+license = "MIT"
+readme = "README.md"
+
+[project.urls]
+repository = "https://github.com/maxmahlke/jayrock.git"
+
+[tool.setuptools]
+packages = ['jayrock']
+
+[tool.setuptools.package-data]
+"jayrock" = ["data/*"]
+
+[tool.poetry.dependencies]
+python = ">=3.11"
+space-rocks = ">=1.9.15"
+pandas = ">=2.3.3"
+pandeia-engine = ">=2025.9"
+rich = ">=14.2.0"
+matplotlib = ">=3.10.7"
+numpy = ">=2.3.4"
+astropy = ">=7.1.1"
+astroquery = ">=0.4.11"
+jwst-gtvt = ">=1.1.1"
+scipy = ">=1.16.2"
