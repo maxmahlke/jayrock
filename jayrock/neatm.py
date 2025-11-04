@@ -102,24 +102,15 @@ class NEATM:
         fluxd : float
             The flux density from the latitude band.
         """
-        if not np.iterable(theta):
-            theta = np.array([theta])
-
-        fluxd = np.zeros_like(theta)
-        for i in range(len(theta)):
-            integral = quad(
-                self._point_emission,
-                0.0,
-                np.pi / 2.0,
-                args=(theta[i], wave, Tss),
-                epsrel=1e-4,
-            )
-            fluxd[i] = integral[0] * np.cos(theta[i] - phase)
-
-        i = np.isnan(fluxd)
-        if any(i):
-            fluxd[i] = 0.0
-        return fluxd
+        integral = quad(
+            self._point_emission,
+            0.0,
+            np.pi / 2.0,
+            args=(theta, wave, Tss),
+            epsrel=1e-4,
+        )
+        fluxd = integral[0] * np.cos(theta - phase)
+        return fluxd if not np.isnan(fluxd) else 0.0
 
     def fluxd(self, wave, geometry):
         """Flux density.
@@ -139,7 +130,6 @@ class NEATM:
         fluxd : Quantity
           The flux density from the whole asteroid in mJy.
         """
-
         phase = np.radians(geometry["phase"])
 
         if not isinstance(wave, (list, np.ndarray)):
