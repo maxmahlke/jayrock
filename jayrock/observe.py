@@ -1,4 +1,5 @@
 import warnings
+from copy import deepcopy
 
 import json
 import numpy as np
@@ -7,11 +8,22 @@ from pandeia.engine.perform_calculation import perform_calculation
 
 import jayrock
 
+import collections.abc
+
+
+def update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
+
 
 class Observation:
     """JWST observation of a given target with a given instrument."""
 
-    def __init__(self, target, instrument, config, report, date_obs, faint=False):
+    def __init__(self, target, instrument, config, report, date_obs):
         """Configure the observation.
 
         Parameters
@@ -26,25 +38,25 @@ class Observation:
             Report of the observation.
         date_obs : str
             Date of the observation in ISO format (YYYY-MM-DD).
-        faint : bool, optional
-            Whether the observation was done at the faintest point. Default is False.
         """
         self.target = target
-        self.instrument = instrument
+        self.instrument = deepcopy(instrument)  # required to protect instrument config
         self.config = config
         self.report = report
         self.date_obs = date_obs
-        self.faint = faint
 
-        self.vmag = config["scene"][0]["spectrum"]["normalization"]["norm_flux"]
-        self.thermal_flux = config["scene"][1]["spectrum"]["normalization"]["norm_flux"]
+        self.texp = report["scalar"]["total_exposure_time"]
+        self.snr = report["scalar"]["sn"]
 
-        self.wave, self.snr = report["1d"]["sn"]
+        self.vmag = target.vmag_date_obs
+        self.thermal = target.thermal_date_obs
+
+        self.wave, self.snr_1d = report["1d"]["sn"]
         self.n_partial_saturated = report["1d"]["n_partial_saturated"][1]
         self.n_full_saturated = report["1d"]["n_full_saturated"][1]
 
-        self.partial = np.array(self.n_partial_saturated) > 0
-        self.full = np.array(self.n_full_saturated) > 0
+        self.partially_saturated = np.array(self.n_partial_saturated) > 0
+        self.fully_saturated = np.array(self.n_full_saturated) > 0
 
         self.is_partially_saturated = np.any(self.n_partial_saturated > 0)
         self.is_fully_saturated = np.any(self.n_full_saturated > 0)
@@ -66,10 +78,12 @@ class Observation:
 
     def plot_snr(self):
         """Plot the SNR as a function of wavelength."""
-        jayrock.plotting.plot_snr(self)
+        return jayrock.plotting.plot_snr(self)
 
 
-def observe(target, instrument, faint=False):
+def observe(
+    target, instrument, date_obs, scene=None, config_override=None, verbose=True
+):
     """Observe a target with a given instrument.
 
     Parameters
@@ -78,32 +92,36 @@ def observe(target, instrument, faint=False):
         Target to observe.
     instrument : Instrument
         Instrument to use for the observation.
-    faint : bool, optional
-        Whether to observe asteroid at its faintest. Default is False.
+    date_obs : str
+        Date of observation in ISO format (YYYY-MM-DD). Must be in the target's
+        ephemeris table.
+    scene : dict, optional
+        Scene dictionary to use for the observation. If None, the scene is built
+        from the target properties.
+    config_override : dict, optional
+        Configuration dictionary to override the default configuration.
+    verbose : bool, optional
+        Whether to print information about the observation. Default is True.
 
     Returns
     -------
     Report
         Report of the observation.
     """
-    jayrock.logging.logger.info(f"Observing {target} with {instrument}")
-
-    if not hasattr(target, "visibility"):
+    if not hasattr(target, "ephemeris"):
         raise ValueError(
-            "Target must have visibility information. Run target.query_visibility() first."
+            "Target must have ephemeris information. Run target.compute_ephemeris() first."
         )
 
-    if not target.is_visible:
-        raise ValueError(f"{target} is not visible. Stopping here.")
+    if not target.is_visible_on(date_obs):
+        raise ValueError(f"{target} is not visible on {date_obs}. Stopping here.")
 
-    # if not hasattr(target, "ephem"):
-    #     raise ValueError(
-    #         "Target must have ephemeris information. Run target.query_ephemerides() first."
-    #     )
-
-    if not hasattr(target, "thermal_flux"):
-        raise ValueError(
-            "Target must have thermal flux information. Run target.query_thermal_flux() first."
+    if verbose:
+        jayrock.logging.logger.info(
+            f"Observing {target} with {instrument.name}|{instrument.mode} on {date_obs}"
+        )
+        jayrock.logging.logger.info(
+            f"{instrument.primary}|{instrument.secondary} - ngroup={instrument.detector.ngroup}|nint={instrument.detector.nint}|nexp={instrument.detector.nexp} - readout={instrument.detector.readout_pattern}"
         )
 
     # ------
@@ -113,72 +131,29 @@ def observe(target, instrument, faint=False):
     )
     config["configuration"].update(instrument.config)
 
-    # Set configuration elements decided by instrument
-    if instrument.instrument == "nirspec":
-        jayrock.logging.logger.info(
-            f"[NIRSpec] Setting date_obs to when Vmag is {'minimum' if not faint else 'maximum'}.."
-        )
-
-        if not faint:
-            date_obs = target.visibility.loc[
-                target.visibility["V"] == target.vmag_min, "date_obs"
-            ].values[0]
-        else:
-            date_obs = target.visibility.loc[
-                target.visibility["V"] == target.vmag_max, "date_obs"
-            ].values[0]
-
-    elif instrument.instrument == "miri":
-        jayrock.logging.logger.info(
-            f"[MIRI] Setting date_obs to when thermal flux is {'minimum' if faint else 'maximum'}.."
-        )
-
-        if not faint:
-            date_obs = target.visibility.date_obs.values[np.argmax(target.thermal_flux)]
-        else:
-            date_obs = target.visibility.date_obs.values[np.argmin(target.thermal_flux)]
-
     # Build scence from target properties
-    scene = target.build_scene(date_obs)
-    config["scene"] = scene
-
-    jayrock.logging.logger.info(
-        f"Observing on {date_obs} [V={target.vmag_date_obs:.2f}, Thermal: {target.thermal_flux_date_obs:.3f}mJy]"
-    )
+    config["scene"] = scene if scene is not None else target.build_scene(date_obs)
 
     # Strategy and background for SNR calculation
     config["strategy"]["reference_wavelength"] = instrument.reference_wavelength
     config["background_level"] = "none"
 
-    # Sanity check
-    # TODO: Insert link to docs
-    if config["configuration"]["detector"]["ngroup"] < 5:
-        jayrock.logging.logger.warning(
-            f"Number of groups per integration is set to {config['configuration']['detector']['ngroup']}. "
-            "It should be at least 5."
-        )
-    if config["configuration"]["detector"]["ngroup"] > 100:
-        jayrock.logging.logger.warning(
-            f"Number of groups per integration is set to {config['configuration']['detector']['ngroup']}. "
-            "It should be at most 100. Increase the number of integrations per exposure instead."
-        )
-
-    # More info
-    if instrument.instrument == "miri":
-        grat = config["configuration"]["instrument"]["aperture"]
-        disp = config["configuration"]["instrument"]["disperser"]
-    elif instrument.instrument == "nirspec":
-        grat = config["configuration"]["instrument"]["disperser"]
-        disp = config["configuration"]["instrument"]["filter"]
-    jayrock.logging.logger.info(
-        f"{grat}|{disp} with {config['configuration']['detector']['ngroup']} groups per integration\n"
-    )
+    if config_override is not None:
+        config = update(config, config_override)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        report = perform_calculation(config)
+        report = perform_calculation(config, webapp=False)
 
-    return Observation(target, instrument, config, report, date_obs, faint=faint)
+        snr = report["scalar"]["sn"]
+        texp = report["scalar"]["total_exposure_time"]
+
+        if verbose:
+            jayrock.logging.logger.info(
+                f"SNR={snr:.1f} at {config['strategy']['reference_wavelength']:.2f}μm in {texp / 60:.1f}min"
+            )
+
+    return Observation(target, instrument, config, report, date_obs)
 
 
 def get_cycle_dates(cycle):
