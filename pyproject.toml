@@ -12,9 +12,6 @@ repository = "https://github.com/maxmahlke/jayrock.git"
 [tool.setuptools]
 packages = ['jayrock']
 
-[tool.setuptools.package-data]
-"jayrock" = ["data/*"]
-
 [tool.poetry.dependencies]
 python = ">=3.11"
 space-rocks = ">=1.9.15"
