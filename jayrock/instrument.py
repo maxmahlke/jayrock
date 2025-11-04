@@ -21,12 +21,14 @@ URLS = {
 class Detector:
     """Detector of observation."""
 
-    def __init__(self, config, instrument, mode):
+    def __init__(self, config, instrument):
         """
         Parameters
         ----------
         config : dict
             instrument['detector'] pandeia configuration dictionary.
+        instrument : Instrument
+            Instrument instance that this detector belongs to.
         """
         self._ngroup = config["ngroup"]
         self._nint = config["nint"]
@@ -45,14 +47,20 @@ class Detector:
     def ngroup(self, ngroup):
         if ngroup < 5:
             jayrock.logging.logger.warning(
-                f"Setting 'ngroup={ngroup}'. 'ngroup' values below 5 are strongly discouraged."
-                f" More information:\n{URLS[self.instrument]['detector']}"
+                f"Setting 'ngroup={ngroup}'. 'ngroup' values below 5 are discouraged."
+                f" More information:\n{URLS[self.instrument.instrument]['detector']}"
             )
-        if ngroup > 100 and self.instrument == "nirspec":
+        if ngroup > 100 and self.instrument.instrument == "nirspec":
             jayrock.logging.logger.warning(
                 f"Setting 'ngroup={ngroup}'. 'ngroup' values larger than 100 are discouraged. Consider increasing 'nint' instead."
-                f" More information:\n{URLS[self.instrument]['detector']}"
+                f" More information:\n{URLS[self.instrument.instrument]['detector']}"
             )
+        if self.readout_pattern == "nrsirs2rapid" and self.nint * ngroup > 1024:
+            jayrock.logging.logger.warning(
+                'nint * ngroup has to be <= 1024 for "nrsirs2rapid" readout pattern.'
+            )
+        if isinstance(ngroup, np.int64):
+            ngroup = int(ngroup)
         self._ngroup = ngroup
 
     @property
@@ -61,6 +69,12 @@ class Detector:
 
     @nint.setter
     def nint(self, nint):
+        if self.readout_pattern == "nrsirs2rapid" and nint * self.ngroup > 1024:
+            jayrock.logging.logger.warning(
+                'nint * ngroup has to be <= 1024 for "nrsirs2rapid" readout pattern.'
+            )
+        if isinstance(nint, np.int64):
+            nint = int(nint)
         self._nint = nint
 
     @property
@@ -68,7 +82,7 @@ class Detector:
         return self._subarray
 
     @subarray.setter
-    def nint(self, subarray):
+    def subarray(self, subarray):
         self._subarray = subarray
 
     @property
@@ -80,7 +94,7 @@ class Detector:
         if nexp == 1:
             jayrock.logging.logger.warning(
                 f"Setting 'nexp={nexp}'. Dithering ('nexp' > 1) is generally recommended."
-                f" More information:\n{URLS[self.instrument]['dither']}"
+                f" More information:\n{URLS[self.instrument.instrument]['dither']}"
             )
 
         self._nexp = nexp
@@ -93,13 +107,9 @@ class Detector:
     def readout_pattern(self, rdpt):
         rdpt = rdpt.lower()
 
-        # ------
-        # Sanity checks
-
-        # NIRSpec
         RDPT_NIRSPEC = ["nrs", "nrsrapid", "nrsirs2", "nrsirs2rapid"]
 
-        if self.instrument == "nirspec":
+        if self.instrument.instrument == "nirspec":
             if rdpt not in RDPT_NIRSPEC:
                 raise ValueError(
                     f"Invalid 'readout_pattern' for NIRSpec: {rdpt}. Choose from {RDPT_NIRSPEC}."
@@ -109,7 +119,7 @@ class Detector:
                 jayrock.logging.logger.warning(
                     f"Setting 'readout_pattern={rdpt}'. The 'nrsirs2rapid' readout pattern is "
                     "recommended for NIRSpec observations."
-                    f" More information:\n{URLS[self.instrument]['detector']}"
+                    f" More information:\n{URLS[self.instrument.instrument]['detector']}"
                 )
 
         self._readout_pattern = rdpt
