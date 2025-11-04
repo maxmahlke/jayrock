@@ -1,10 +1,8 @@
 import json
-from pathlib import Path
 
 import numpy as np
-from scipy.interpolate import RectBivariateSpline
-import pandas as pd
 from pandeia.engine.calc_utils import build_default_calc
+from pandeia.engine.instrument_factory import InstrumentFactory
 
 import jayrock
 
@@ -12,7 +10,11 @@ URLS = {
     "nirspec": {
         "detector": "https://jwst-docs.stsci.edu/jwst-near-infrared-spectrograph/nirspec-observing-strategies/nirspec-detector-recommended-strategies",
         "dither": "https://jwst-docs.stsci.edu/jwst-near-infrared-spectrograph/nirspec-operations/nirspec-dithers-and-nods",
-    }
+    },
+    "miri": {
+        "dither": "https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument/miri-operations/miri-dithering"
+        "detector": "https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument/miri-observing-strategies"
+    },
 }
 
 

@@ -6,6 +6,6 @@ __version__ = "0.1"
 from . import neatm, plotting
 from .logging import set_log_level  # noqa
 from .instrument import Instrument
-from .plotting import plot_snr
 from .observe import get_cycle_dates, Observation, observe
+from .plotting import plot_snr
 from .target import Target
