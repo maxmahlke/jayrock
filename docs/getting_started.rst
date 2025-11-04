@@ -41,34 +41,15 @@ find them by setting two system variables in your ``.bashrc`` or ``.zshrc`` (←
 
        $ export pandeia_refdata=$HOME/astro/data/pandeia  # this line should be in your .zshrc or .bashrc file
        $ export PYSYN_CDBS=$HOME/astro/data/synphot  # this line should be in your .zshrc or .bashrc file
-       $ tree $PYSYN_CDBS -L 2  # list directory structure up to level 2
-        ├── comp
-        │   ├── acs
-        │   ├── cos
-        │   ├── fgs
-        │   ├── foc
-        │   ├── fos
-        │   ├── hrs
-        │   ├── hsp
-        │   ├── nicmos
-        │   ├── nonhst
-        │   ├── ota
-        │   ├── stis
-        │   ├── wfc3
-        │   ├── wfpc
-        │   └── wfpc2
-        ├── grid
-        │   ├── atmo2020
-        │   ├── brown19
-        │   ├── comp_qso
-        │   ├── novae
-        │   ├── phoenix
-        │   ├── pne
-        │   ├── solsys
-        │   ├── stellar_pop
-        │   └── swire
-        └── grp
-            └── redcat
+       $ ls $PYSYN_CDB
+       comp  grid  grp
+       $ ls $PYSYN_CDBS/comp
+       acs  cos  fgs  foc  fos  hrs  hsp  nicmos  nonhst  ota  stis  wfc3  wfpc  wfpc2
+       $ ls $PYSYN_CDBS/grid
+       atmo2020  brown19  comp_qso  novae  phoenix  pne  solsys  stellar_pop  swire
+       $ ls $PYSYN_CDBS/grp
+       redcat
+
 
 
 Installing ``jayrock``
@@ -80,8 +61,8 @@ Installing ``jayrock``
 
    $ pip install jayrock  # lines starting with $ are terminal commands
 
-This will also install common dependencies like ``numpy``, ``pandas``,
-``astropy``, and ``astroquery``. Less common dependencies are ``rocks``, the `client <https://rocks.readthedocs.io>`_ to the `SsODNet database <https://ssp.imcce.fr/webservices/ssodnet/>`_ of minor body data, and ``jwst_gtvt``, the `JWST General Target Visibility Tool <https://jwst-docs.stsci.edu/jwst-other-tools/jwst-target-visibility-tools/jwst-general-target-visibility-tool-help>`_.
+This will also install all required dependencies, including common ones like ``numpy``, ``pandas``,
+``astropy``, ``astroquery``, and less common ones like ``rocks``, the `client <https://rocks.readthedocs.io>`_ to the `SsODNet database <https://ssp.imcce.fr/webservices/ssodnet/>`_ of minor body data, and ``jwst_gtvt``, the `JWST General Target Visibility Tool <https://jwst-docs.stsci.edu/jwst-other-tools/jwst-target-visibility-tools/jwst-general-target-visibility-tool-help>`_.
 
 After installing ``jayrock``, you can check that it installed correctly by running
 
