@@ -204,29 +204,25 @@ class Instrument:
     def aperture(self, apt):
         self._config["instrument"]["aperture"] = apt.lower()
 
-    def print_config(self):
-        """Print the observation configuration."""
-        print(json.dumps(self.config, indent=4))
+    @property
+    def name(self):
+        return {"nirspec": "NIRSpec", "miri": "MIRI"}[self._instrument]
 
-        if min_snr_at_flux >= target_snr:
-            jayrock.logging.logger.info(
-                f"Target SNR {target_snr} is met at minimum ngroups = {ngroups[0]}"
-            )
-            return int(np.ceil(ngroups[0]))
+    @property
+    def texp(self):
+        """Total exposure time in seconds."""
+        inst = InstrumentFactory(config=self.config)
+        return inst.the_detector.exposure_spec.total_exposure_time
 
-        if target_snr > max_snr_at_flux:
-            jayrock.logging.logger.warning(
-                f"Target SNR {target_snr} is not achievable for flux {np.power(10,flux_target):.2f}. "
-                f"Possible SNR range is [{min_snr_at_flux:.2f}, {max_snr_at_flux:.2f}]. Setting ngroups=10"
-            )
-            return 10
+    @property
+    def primary(self):
+        """Return primary optical element of the instrument."""
+        return {"nirspec": self.disperser, "miri": self.aperture}[self.instrument]
 
-        snrs_interp = interpolator(ngroups, flux_target).flatten()
-        ans = int(np.ceil(np.interp(target_snr, snrs_interp, ngroups)))
-        jayrock.logging.logger.info(
-            f"Target SNR {target_snr} is met at minimum ngroups = {ngroups[0]}"
-        )
-        return ans
+    @property
+    def secondary(self):
+        """Return secondary optical element of the instrument."""
+        return {"nirspec": self.filter, "miri": self.disperser}[self.instrument]
 
     @property
     def reference_wavelength(self):
