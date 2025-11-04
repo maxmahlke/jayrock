@@ -6,11 +6,12 @@ from jwst_gtvt.jwst_tvt import Ephemeris
 import numpy as np
 from pandeia.engine.astro_spectrum import AstroSpectrum
 from pandeia.engine.source import Source
-import requests
 from rich import print
 import rocks
 
 import jayrock
+
+WAVE_GRID = np.arange(0.45, 30, 0.01)
 
 
 # Subclass the Ephemeris class to patch the get_moving_target_positions method
@@ -64,7 +65,7 @@ class PatchedEphemeris(Ephemeris):
         return self.dataframe
 
 
-class Target(rocks.Rock):
+class Target:
     """Define target of observation."""
 
     def __init__(self, name):
@@ -74,22 +75,40 @@ class Target(rocks.Rock):
         name : str
             Name or desingation of the target to observe. Passed to rocks.id for identification.
         """
-        super().__init__(name)
-        # self.rock = rocks.Rock(name)
 
-        # if not self.rock.is_valid:
-        #     jayrock.logging.logger.warning(
-        #     "Functionality is limited if target is unknown."
-        # )
-        #     self.name = name
-        # # else:
-        #     self.name = self.rock.name
+        self.rock = rocks.Rock(name)
+
+        if not self.rock.is_valid:
+            jayrock.logging.logger.warning(
+                "Functionality is limited if target is unknown."
+            )
+            self.name = name
+        else:
+            self.name = self.rock.name
+
+        # If literature values do not exist, populate with defaults
+        if not self.rock.albedo:
+            self.rock.albedo.value = 0.1
+            jayrock.logging.logger.warning(
+                f"No albedo value on record for {self.name}. Using default of 0.1."
+            )
+
+        if not self.rock.diameter:
+            self.rock.diameter.value = 30
+            jayrock.logging.logger.warning(
+                f"No diameter value on record for {self.name}. Using default of 30."
+            )
+
+        self.albedo = self.rock.albedo.value
+        self.diameter = self.rock.diameter.value
+        self.beaming = 1
+        self.emissivity = 0.9
 
     def __repr__(self):
         return f"Target(name={self.name})"
 
     def compute_ephemeris(self, cycle=None, date_start=None, date_end=None):
-        """Compute visibility windows for the target using jwst mtvt and JPL Horizons.
+        """Compute target ephemeris using jwst mtvt and JPL Horizons.
 
         Parameters
         ----------
@@ -106,18 +125,20 @@ class Target(rocks.Rock):
         Notes
         -----
         Populates the following attributes:
-            - visibility : pd.DataFrame
-                Visibility windows for the target.
+            - ephemeris : pd.DataFrame
         """
         if cycle is None and date_start is None and date_end is None:
             raise ValueError("Either cycle or date_start and date_end must be given.")
 
         # Set dates
         if cycle is not None:
-            date_start, date_end = jayrock.get_cycle_dates(cycle)
+            self.date_start, self.date_end = jayrock.get_cycle_dates(cycle)
+        else:
+            self.date_start = date_start
+            self.date_end = date_end
 
-        date_start = Time(date_start, format="iso", scale="utc")
-        date_end = Time(date_end, format="iso", scale="utc")
+        date_start = Time(self.date_start, format="iso", scale="utc")
+        date_end = Time(self.date_end, format="iso", scale="utc")
 
         # suppress ugly warning triggered by mtvt
         # instantiating astropy.time.Time for year 2030
@@ -135,11 +156,11 @@ class Target(rocks.Rock):
         target_neatm = self.compute_neatm()
 
         # Thermal flux at 15 micron in mJy
-        vis["thermal_flux"] = vis.apply(
+        vis["thermal"] = vis.apply(
             lambda row: target_neatm.fluxd(
                 wave=15,
                 geometry=dict(rh=row["rh"], delta=row["delta"], phase=row["phase"]),
-            ).value,
+            ),
             axis=1,
         )
 
@@ -154,21 +175,35 @@ class Target(rocks.Rock):
             lambda x: Time(x, format="mjd", scale="utc").iso.split()[0]
         )
 
-        self.visibility = vis
+        self.ephemeris = vis[
+            [
+                "date_obs",
+                "ra",
+                "dec",
+                "V",
+                "rh",
+                "delta",
+                "phase",
+                "ra_3sigma",
+                "dec_3sigma",
+                "thermal",
+                "window",
+            ]
+        ]
 
-        self.vmag_min = self.visibility.V.min()
-        self.vmag_max = self.visibility.V.max()
+        self.vmag_min = self.ephemeris.V.min()
+        self.vmag_max = self.ephemeris.V.max()
 
-        self.is_visible = len(self.visibility) > 0
+        self.is_visible = len(self.ephemeris) > 0
 
-        self.n_days_visible = len(self.visibility)
-        self.n_windows = self.visibility["window"].max() if self.is_visible else 0
+        self.n_days_visible = len(self.ephemeris)
+        self.n_windows = self.ephemeris["window"].max() if self.is_visible else 0
 
         self.dates_vis_start = [
-            window["date_obs"].min() for _, window in self.visibility.groupby("window")
+            window["date_obs"].min() for _, window in self.ephemeris.groupby("window")
         ]
         self.dates_vis_end = [
-            window["date_obs"].max() for _, window in self.visibility.groupby("window")
+            window["date_obs"].max() for _, window in self.ephemeris.groupby("window")
         ]
 
     def is_visible_on(self, date_obs):
@@ -184,83 +219,53 @@ class Target(rocks.Rock):
         bool
             True if target is visible on the given date, False otherwise.
         """
-        if not hasattr(self, "visibility"):
-            raise AttributeError("Run query_visibility() before is_visible_on().")
+        if not hasattr(self, "ephemeris"):
+            raise AttributeError("Run compute_ephemeris() before is_visible_on().")
 
-        if not any(self.visibility["date_obs"].str.startswith(date_obs)):
+        if not any(self.ephemeris["date_obs"].str.startswith(date_obs)):
             return False
         return True
 
-    def compute_neatm(self, diameter=None, albedo=None, beaming=1.0, emissivity=0.9):
+    def compute_neatm(self):
         """Build NEATM model for the target.
-
-        Parameters
-        ----------
-        diameter : float, optional
-            Diameter of the target in km. If None, uses value from rocks database or assumes 30 km.
-            Default is None.
-        albedo : float, optional
-            Albedo of the target. If None, uses value from rocks database or assumes 0.1. Default is None.
-        beaming : float, optional
-            Beaming parameter. Default is 1.0.
-        emissivity : float, optional
-            Emissivity of the target. Default is 0.9.
 
         Returns
         -------
         NEATM
             NEATM model for the target.
         """
-
-        if albedo is None:
-            albedo = self.rock.albedo.value if self.rock.albedo else 0.1
-            if not self.rock.albedo:
-                jayrock.logging.logger.warning(
-                    f"Albedo unknown for {self.name}, assuming {albedo}."
-                )
-
-        if diameter is None:
-            diameter = self.rock.diameter.value if self.rock.diameter else 30.0  # km
-            if not self.rock.diameter:
-                jayrock.logging.logger.warning(
-                    f"Diameter unknown for {self.name}, assuming {diameter} km."
-                )
-
-        target_neatm = jayrock.neatm.NEATM(
-            diameter=diameter,
-            albedo=albedo,
-            beaming=1.0,
-            emissivity=0.9,
-        )
-        return target_neatm
-
-    def print_visibility(self):
-        """Print visibility windows for the target."""
-        print(
-            f"\n{self.name}:  Visible for {self.n_days_visible} days during {self.n_windows} window{'' if self.n_windows < 2 else 's'}"
+        return jayrock.neatm.NEATM(
+            diameter=self.diameter,
+            albedo=self.albedo,
+            beaming=self.beaming,
+            emissivity=self.emissivity,
         )
 
-        if "thermal_flux" not in self.visibility.columns and hasattr(
-            self, "thermal_flux"
-        ):
-            self.visibility["thermal_flux"] = self.thermal_flux
+    def print_ephemeris(self):
+        """Print ephemeris of the target."""
+        from rich.tree import Tree
 
-        for n, window in self.visibility.groupby("window"):
+        tree = Tree(
+            f"({self.rock.number}) {self.name}: Ephemeris from {self.date_start} to {self.date_end}",
+        )
+
+        for n, window in self.ephemeris.groupby("window"):
             window = window.sort_values("date_obs")
 
-            print(
-                f"\n  Window {n}: {window.date_obs.min()} -> {window.date_obs.max()} [{len(window)} days]"
+            branch = tree.add(
+                f"[bold]Window {n}:[/bold] {window.date_obs.min()} -> {window.date_obs.max()}"
             )
-            print(
-                f"      Vmag:    {window['V'].values[0]:.2f} -> {window['V'].values[-1]:.2f}"
+            branch.add(f"{'Duration':<17}{len(window)} days")
+            branch.add(
+                f"{'Vmag':<17}{window['V'].values[0]:.2f} -> {window['V'].values[-1]:.2f}"
             )
-            print(
-                f"  Thermal: {window['thermal_flux'].values[0]:.2f} -> {window['thermal_flux'].values[-1]:.2f} mJy [15micron]"
+            branch.add(
+                f"{'Thermal @ 15um':<17}{window['thermal'].values[0]:.2f} -> {window['thermal'].values[-1]:.2f} mJy"
             )
-
-        print(
-            f"\nPositional uncertainty: {np.nanmean(self.visibility['ra_3sigma'].values):.3f} arcsec in RA / {np.nanmean(self.visibility['dec_3sigma'].values):.3f} arcsec in DEC\n"
+        tree.add(
+            f"errRA/errDec in arcsec: {np.nanmean(self.ephemeris['ra_3sigma'].values):.3f} / {np.nanmean(self.ephemeris['dec_3sigma'].values):.3f}"
         )
+        print(tree)
 
     def _build_config_source_reflected(self, date_obs):
         """Configure the reflected source of the target.
@@ -275,8 +280,9 @@ class Target(rocks.Rock):
         dict
             Source configuration dictionary to be passed to the pandeia.
         """
-        idx_date_obs = self.visibility.date_obs.tolist().index(date_obs)
-        self.vmag_date_obs = self.visibility.V.values[idx_date_obs]
+        self.vmag_date_obs = self.ephemeris.loc[
+            self.ephemeris.date_obs == date_obs, "V"
+        ].values[0]
 
         # TODO: Make this configurable
         reflected = {
@@ -315,34 +321,27 @@ class Target(rocks.Rock):
         }
         return reflected
 
-    def compute_reflectance_spectrum(self, date_obs=None):
+    def compute_reflectance_spectrum(self, date_obs):
         """Compute the reflectance spectrum source at a given date of observation.
 
         Parameters
         ----------
         date_obs : str
-            Date of observation in ISO format (YYYY-MM-DD). If None, uses the
-            date of brightest apparent V magnitude. Default is None.
+            Date of observation in ISO format (YYYY-MM-DD).
 
         Returns
         -------
         np.ndarray, np.ndarray
             Wavelengths (micron) and fluxes (mJy) of the reflectance spectrum.
         """
-
-        # TODO: Make this a function
-        if date_obs is None:
-            if not hasattr(self, "visibility"):
-                raise AttributeError(
-                    "Run query_visibility() before build_reflectance_spectrum()."
-                )
-            idx_brightest = self.visibility.V.idxmin()
-            date_obs = self.visibility.date_obs.values[idx_brightest]
-
         config_reflected = self._build_config_source_reflected(date_obs)
         source_reflected = Source(telescope="jwst", config=config_reflected)
         spec = AstroSpectrum(source_reflected)
-        return spec.wave, spec.flux * 1000  # mJy
+        wave, flux = spec.wave, spec.flux
+
+        # interpolate to WAVE_GRID
+        flux = np.interp(WAVE_GRID, wave, flux)
+        return WAVE_GRID, flux
 
     def _build_config_source_thermal(self, date_obs):
         """Configure the thermal source of the target.
@@ -357,8 +356,9 @@ class Target(rocks.Rock):
         dict
             Source configuration dictionary to be passed to the pandeia.
         """
-        # idx_date_obs = self.visibility.date_obs.tolist().index(date_obs)
-        # self.thermal_flux_date_obs = self.thermal_flux[idx_date_obs]
+        self.thermal_date_obs = self.ephemeris.loc[
+            self.ephemeris.date_obs == date_obs, "thermal"
+        ].values[0]
 
         wave, flux = self.compute_thermal_spectrum(date_obs)
 
@@ -386,7 +386,7 @@ class Target(rocks.Rock):
                 "redshift": 0.0,
                 "normalization": {
                     "type": "none",
-                    # "norm_flux": float(self.thermal_flux_date_obs),
+                    # "norm_flux": float(self.thermal),
                     # "norm_fluxunit": "mjy",
                     # "norm_wave": 15,
                     # "norm_waveunit": "microns",
@@ -414,17 +414,17 @@ class Target(rocks.Rock):
             Wavelengths (micron) and fluxes (mJy) of the thermal spectrum.
         """
         if date_obs is None:
-            if not hasattr(self, "visibility"):
+            if not hasattr(self, "ephemeris"):
                 raise AttributeError(
-                    "Run query_visibility() before build_thermal_spectrum()."
+                    "Run compute_ephemeris() before build_thermal_spectrum()."
                 )
-            idx_highest = self.visibility.thermal_flux_15um_mjy.idxmax()
-            date_obs = self.visibility.date_obs.values[idx_highest]
-        idx_date_obs = self.visibility.date_obs.tolist().index(date_obs)
+            idx_highest = self.ephemeris.thermal.idxmax()
+            date_obs = self.ephemeris.date_obs.values[idx_highest]
+        idx_date_obs = self.ephemeris.date_obs.tolist().index(date_obs)
         geom = dict(
-            rh=self.visibility.rh.values[idx_date_obs],
-            delta=self.visibility.delta.values[idx_date_obs],
-            phase=self.visibility.phase.values[idx_date_obs],
+            rh=self.ephemeris.rh.values[idx_date_obs],
+            delta=self.ephemeris.delta.values[idx_date_obs],
+            phase=self.ephemeris.phase.values[idx_date_obs],
         )
         neatm = self.compute_neatm()
         flux = neatm.fluxd(WAVE_GRID, geom)
@@ -447,6 +447,8 @@ class Target(rocks.Rock):
             length 1, returns a single str. If at is a list of length >1,
             returns a list.
         """
+        if not hasattr(self, "ephemeris"):
+            raise AttributeError("Run compute_ephemeris() before get_date_obs().")
 
         if at is not None:
             if not isinstance(at, list):
@@ -493,34 +495,76 @@ class Target(rocks.Rock):
         if not self.is_visible_on(date_obs):
             raise ValueError(f"{self.target} is not visible on {date_obs}.")
 
-        if not hasattr(self, "visibility"):
-            raise AttributeError("Run query_visibility() before build_scene().")
+        if not hasattr(self, "ephemeris"):
+            raise AttributeError("Run compute_ephemeris() before build_scene().")
 
-        if not hasattr(self, "thermal_flux"):
-            raise AttributeError("Run query_thermal_flux() before build_scene().")
-
-        reflected = _build_config_source_reflected(date_obs)
-        thermal = _build_config_source_thermal(date_obs)
+        reflected = self._build_config_source_reflected(date_obs)
+        thermal = self._build_config_source_thermal(date_obs)
         return [reflected, thermal]
 
-    def plot_spectrum(self, **kwargs):
-        """Plot the reflectance and/or thermal spectrum of the target.
+    def export_spectrum(self, filename, date_obs=None, thermal=True, reflected=True):
+        """Export the reflectance and/or thermal spectrum of the target to a file.
 
         Parameters
         ----------
+        filename : str
+            Output filename.
+        date_obs : str, optional
+            Date of observation in ISO format (YYYY-MM-DD). If None, uses the
+            date of brightest apparent V magnitude. Default is None.
+        thermal : bool, optional
+            Whether to export the thermal spectrum. Default is True.
+        reflected : bool, optional
+            Whether to export the reflectance spectrum. Default is True.
+        """
+
+        if not hasattr(self, "ephemeris"):
+            raise AttributeError("Run compute_ephemeris() before export_spectrum().")
+
+        wave, flux = WAVE_GRID, np.zeros_like(WAVE_GRID)
+
+        if reflected:
+            _, reflected_flux = self.compute_reflectance_spectrum(date_obs=date_obs)
+            flux += reflected_flux
+
+        if thermal:
+            _, thermal_flux = self.compute_thermal_spectrum(date_obs=date_obs)
+            flux += thermal_flux
+
+        # Store to filename
+        np.savetxt(
+            filename,
+            np.column_stack((wave, flux)),
+            header="Wavelength(micron) Flux(mJy)",
+            delimiter=" ",
+            fmt="%.6f",
+        )
+
+    def get_vmag(self, date_obs):
+        """Get apparent V mag on date of observation."""
+        return self.ephemeris.loc[self.ephemeris.date_obs == date_obs, "V"].values[0]
+
+    def get_thermal(self, date_obs, wave=15):
+        """Get thermal flux in mJy at wavelength in micron on date of observation."""
+        thermal_wave, thermal_flux = self.compute_thermal_spectrum(date_obs=date_obs)
+        return np.interp(wave, thermal_wave, thermal_flux)
+
+    def plot_spectrum(self, **kwargs):
+        """Plot the spectrum of the target.
+
+        Parameters
+        ----------
+        target : Target
+            Target to plot the spectrum for.
+        date_obs : str or list of str
+            Date of observation in ISO format (YYYY-MM-DD).
         reflected : bool, optional
             Whether to plot the reflectance spectrum. Default is True.
         thermal : bool, optional
             Whether to plot the thermal spectrum. Default is True.
-        date_obs : str, optional
-            Date of observation in ISO format (YYYY-MM-DD). If None, uses the
-            date of brightest apparent V magnitude. Default is None.
-        at : str or list of str, optional
-            Conditions at which to plot the spectrum. Choose from ['vmag_min', 'vmag_max',
-            'thermal_max', 'thermal_min']. If None, uses date_obs. Default is None.
         """
 
-        if not hasattr(self, "visibility"):
-            raise AttributeError("Run query_visibility() before plot_spectrum().")
+        if not hasattr(self, "ephemeris"):
+            raise AttributeError("Run compute_ephemeris() before plot_spectrum().")
 
         jayrock.plotting.plot_spectrum(self, **kwargs)
