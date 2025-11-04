@@ -1,24 +1,29 @@
-Observing Vesta family members with MIRI
-========================================
+.. _miri-mrs-example:
 
-In this example, we plan observations of *Vesta* family members with MIRI
-during cycle 6. We put the following constraints:
+MIRI Observations of Vesta Family
+=================================
 
-- Targets should be Vesta family members with known diameter
+This tutorial outlines the observation planning for *Vesta* family members
+using the MIRI instrument during JWST Cycle 6. Our main objective is to study
+silicate composition, which requires achieving a target Signal-to-Noise Ratio
+(SNR) of 300 around 10μm. As the 10μm feature is accessible with both MIRI Low
+Resolution Spectrometer (LRS) and Medium Resolution Spectrometer (MRS), we
+use both modes.
 
-- Targets should have different diameters to sample a range of sizes
+We place the following constraints:
 
-- SNR of 300 around 10μm to study silicate composition
+· Targets must be Vesta family members with a known diameter.
 
-The 10μm feature is accessible both with MIRI LRS and MRS. We use
-both modes here.
+· The sample must span a range of diameters to encompass different sizes.
 
-Identify potential targets
---------------------------
+· Required SNR is 300 around 10μm.
 
-We start by getting the list of Vesta family members from ``rocks`` and
-selecting all asteroids with known diameter to make sure we can model their
-thermal emission.
+Identifying potential targets
+------------------------------
+
+We start by identifying all *Vesta* family members that have a known diameter, a
+prerequisite for accurately modelling their thermal emission. We use the ``rocks``
+package to access the SsODNet/BFT asteroid database.
 
 .. code-block:: python
 
@@ -31,26 +36,23 @@ thermal emission.
    is_vestoid = bft["family.family_name"] == "Vesta"
    has_diameter = bft["diameter.value"].notnull()
 
-   vestoids_with_D = bft[is_vestoid & has_diameter]
+   vestoids = bft[is_vestoid & has_diameter]
 
-   print(f"Vestoids with known diameter: ({len(vestoids_with_D)})")
+This initial selection yields 2041 Vesta family members with known diameters at
+the time of writing, all of which are potential targets.
 
-.. code-block:: python
+Defining MIRI configurations
+----------------------------
 
-    2041
-
-There are 2041 Vesta family members with known diameter that we can consider as
-potential targets.
-
-Define instruments
-------------------
+We configure the MIRI MRS and LRS modes using ``jayrock``, setting the optics,
+exposure times, and readout patterns for each.
 
 MIRI MRS
 ^^^^^^^^
 
-For MIRI MRS observations, we use a 4-point dither for the target observations.
-We set the aperture to channel 2 and the long disperser to cover the 10μm
-silicate feature.
+For the MRS, we set a standard 4-point dither (``nexp=4``). To target the 10μm
+silicate feature, we initially set the aperture to Channel 2 and the Long
+disperser.
 
 .. code-block:: python
 
@@ -67,9 +69,8 @@ silicate feature.
 MIRI LRS
 ^^^^^^^^
 
-Similarly, we define the MIRI LRS instrument configuration and set a 2-point
-dither for the target observations. We use LRS in SLIT mode. No optical
-components need to be set for LRS as there is only one valid one.
+We configure the LRS for SLIT mode and specify a 2-point dither (``nexp=2``). Since
+LRS has only one valid optical component, no further configuration is required.
 
 .. code-block:: python
 
@@ -78,13 +79,11 @@ components need to be set for LRS as there is only one valid one.
    miri_lrs.detector.nexp = 2  # 2-pt dither
    miri_lrs.detector.readout_pattern = 'fastr1'  # recommended for LRS
 
-Explore the timing
-------------------
+Determining observable diameter range and exposure times
+--------------------------------------------------------
 
-
-Next, we'd like to know what diameter range we can observe with MIRI MRS/LRS.
-We select Vestoids with different diameters that are representative of our
-sample.
+To understand the diameter range achievable with each MIRI mode, we select the
+largest Vesta family member within a set of representative diameter bins.
 
 .. code-block:: python
 
@@ -118,20 +117,24 @@ sample.
 (4) Vesta is by far the largest family member, followed by (63) Ausonia at 93km
 diameter. No family members have sizes between 24 and 64km.
 
+Estimating exposure times
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We now loop over these targets and
+We now iterate through this sample to estimate the minimum exposure time
+required to achieve an SNR between 300 and 400 at 10μm. Using an SNR range
+(instead of a single value) speeds up the binary search, as the process stops
+once any ``ngroup`` and ``nint`` combination is found. The resulting exposure
+times are thus appropriate upper limits. Once we have our target list, we
+will refine the exposure times further.
 
-1. compute their ephemeris for cycle 6,
+For each target, we:
 
-2. identify the date of their lowest thermal flux during their visibility window, and
+1. Compute its ephemeris for Cycle 6.
 
-3. estimate the required exposure time to reach an SNR between 300 to 400 at 10μm with MIRI
-   LRS and MRS
+2. Identify the date of minimum thermal flux (``thermal_min``) during its
+   visibility window, representing the most challenging observation scenario.
 
-We set an SNR target range (300-400) rather than a fixed value to speed up the
-computation, as the binary search will break as soon as a tested combination of
-``ngroup`` and ``nint`` yields an SNR within this range. The exposure times we
-get will thus be appropriate but upper limits.
+3. Estimate the necessary exposure settings (``ngroup`` and ``nint``) for both MRS and LRS modes.
 
 .. code-block:: python
 
@@ -163,6 +166,8 @@ get will thus be appropriate but upper limits.
             vestoids.loc[idx, f"ngroup_{inst.mode}"] = inst.detector.ngroup
             vestoids.loc[idx, f"texp_{inst.mode}"] = inst.texp
             vestoids.loc[idx, f"snr_{inst.mode}"] = inst.estimated_snr
+
+Example outputs of these calculations for three targets are shown below.
 
 .. dropdown:: The case of (2000) QA163
 
@@ -268,8 +273,8 @@ get will thus be appropriate but upper limits.
         ERROR    [jayrock] Minimum nint/ngroup saturated. Stopping search. Providing parameter 'bounds' might avoid this.
 
 
-
-We see the different sensitivities of MIRI MRS and LRS reflected in the exposure times.
+The table below shows the exposure times (in seconds). A value of NaN indicates
+that the target saturates even at the minimum exposure settings.
 
 .. code-block:: python
 
@@ -283,12 +288,13 @@ We see the different sensitivities of MIRI MRS and LRS reflected in the exposure
         Ausonia          93.000     55.50080           NaN
           Vesta         525.400          NaN           NaN
 
-In the list above, the exposure times (in s) are ``NaN`` if the target saturates.
-The IFU mode of MIRI MRS is less sensitive than the slit mode of MIRI LRS,
-allowing to observe larger targets without saturation. However, smaller targets
-require significantly longer exposure times than with the LRS.
+The exposure times confirm that MIRI MRS (IFU mode) is less sensitive than MIRI
+LRS (slit mode). MRS can observe larger, brighter targets without saturation,
+yet it requires considerably longer exposure times for the smaller targets
+compared to LRS. LRS saturates for targets larger than ∼24 km, and Vesta
+saturates in both modes.
 
-To visualise this, we plot the exposure time against diameter for both MIRI MRS and LRS.
+We can visualise this trade-off by plotting the exposure time against the diameter:
 
 .. code-block:: python
 
@@ -325,33 +331,32 @@ To visualise this, we plot the exposure time against diameter for both MIRI MRS 
    :align: center
    :width: 100%
 
-Define observing strategy
--------------------------
+Defining final observing strategy
+---------------------------------
 
-From our calculation above, we see that we can go down to about 4km in diameter
-with MIRI MRS to reach our SNR target within one hour of exposure time. In this
-example, we choose to five targets between 4 and 100km to observe with MIRI MRS
-and 2 targets below 4km with MIRI LRS.
+Based on the exposure time analysis:
 
-MIRI MRS
-^^^^^^^^
+· MIRI MRS is suitable for targets down to approximately 4km diameter to meet
+the SNR requirement within a reasonable exposure time.
 
-We take the targets from our list above:
+· MIRI LRS is necessary for the smallest targets, those <4km.
 
-.. code-block:: python
+We select five targets for the MRS (ranging from 8 km to 93 km) and two targets
+for the LRS (under 4 km).
 
-    TARGETS_MRS = ["Kollaa", "Koskenniemi", "Mila", "Robelmonte", "Ausonia"]
+MIRI MRS observation parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We need to define the SNR across all four channels and three dispersers.
-
-Channel 1 has low throughput and will typically not increase significantly with exposure time.
-We use the minimum ``ngroups`` here.
-
-Channel 2 and 3 are important and we set SNR of 300 across all dispersers.
-
-Channel 4 again has lower throughput, we set the target to 100.
+For MRS, we must calculate the required exposure settings across all four
+channels and three dispersers. Channels 2 and 3 cover the key silicate
+features, so we set their target SNR to 300. Channel 4 is less sensitive and is
+set to SNR 100. For Channel 1, which has low throughput and is observed
+concurrently with Channel 2, we use the minimum exposure settings (``ngroup=5``,
+``nint=1``).
 
 .. code-block:: python
+
+   TARGETS_MRS = ["Kollaa", "Koskenniemi", "Mila", "Robelmonte", "Ausonia"]
 
    SNR_targets = {
        'ch2': {'short': 300, 'medium': 300, 'long': 300},
@@ -359,9 +364,10 @@ Channel 4 again has lower throughput, we set the target to 100.
        'ch4': {'short': 100, 'medium': 100, 'long': 100},
    }
 
-Now we can loop over our targets and instrument configurations to compute the required
-``nint`` and ``ngroup`` for the APT. We always use 4-point dithers (``nexp=4``) for the target observations.
-We store these parameters in a dictionary to avoid recomputing them later.
+We now loop over our targets and instrument configurations to compute the
+required ``nint`` and ``ngroup`` for the APT. We always use 4-point dithers
+(``nexp=4``) for the target observations. We store these parameters in a
+dictionary to avoid recomputing them later.
 
 .. code-block:: python
 
@@ -433,11 +439,12 @@ We store these parameters in a dictionary to avoid recomputing them later.
        # ...
    }
 
-Check SNR and saturation
-........................
+Checking SNR and saturation
+...........................
 
-With the best settings identified, we now compute SNR curves for all targets at both the
-minimum and maximum thermal flux dates to ensure we do not saturate.
+We check the full SNR curve at both the date of minimum and maximum thermal
+flux to confirm the observation avoids saturation across the full visibility
+window.
 
 .. code-block:: python
 
@@ -507,20 +514,14 @@ minimum and maximum thermal flux dates to ensure we do not saturate.
        :align: center
        :width: 100%
 
-MIRI LRS
-^^^^^^^^
+MIRI LRS observation parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Next, we repeat the same process for MIRI LRS.
+We calculate the required settings for the two smallest targets using MIRI LRS, aiming for an SNR of 300 at 10μm.
 
 .. code-block:: python
 
     TARGETS_LRS = ["2000 WE8", "2000 QA163"]
-
-Calculation of the required nint and ngroup is straight-forward as there is only
-one optical configuration to assess. We want an SNR of 300 at 10 micron.
-
-.. code-block:: python
-
     SNR_TARGET = 300
 
     LRS_OBSERVING_PARAMETERS = {}
@@ -554,10 +555,11 @@ one optical configuration to assess. We want an SNR of 300 at 10 micron.
         "2000 QA163": {"ngroup": 36, "nint": 1},
     }
 
-Check SNR and saturation
-........................
+Checking SNR and saturation
+...........................
 
-Again, we make sure that it does not saturate at the date of highest thermal emission.
+We confirm that the LRS observations also successfully avoid saturation at the
+date of highest thermal emission.
 
 .. code-block:: python
 
@@ -584,7 +586,7 @@ Again, we make sure that it does not saturate at the date of highest thermal emi
             observations, show=False, save_to=f"{target.name}_miri_lrs_snr.png"
         )
 
-No issue here, both targets reach the SNR target without saturation at both dates.
+The results show no saturation issues for the two small LRS targets at either thermal extreme.
 
 .. dropdown:: SNR of \(2000) QA163
 
