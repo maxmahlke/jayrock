@@ -18,7 +18,7 @@ the need to use the online ETC.
 ``pandeia`` requires different reference datasets. Detailed install
 instructions are `here
 <https://outerspace.stsci.edu/spaces/PEN/pages/77530136/Pandeia+Engine+Installation>`_.
-In short, you have to downloda three datasets and tell your system where to
+In short, you have to download three datasets and tell your system where to
 find them by setting two system variables in your ``.bashrc`` or ``.zshrc`` (← Mac users) files.
 
 1. JWST reference data (4GB) → `Section 3.1 <https://outerspace.stsci.edu/spaces/PEN/pages/77530136/Pandeia+Engine+Installation#PandeiaEngineInstallation-RequiredData>`_ of the instructions
@@ -57,18 +57,20 @@ Installing ``jayrock``
 
 ``jayrock`` requires ``python`` 3.11 or higher. Install it via
 
-.. code-block:: bash
+.. prompt:: bash
+   :prompts: $
 
-   $ pip install jayrock  # lines starting with $ are terminal commands
+   pip install jayrock  # lines starting with $ are terminal commands
 
 This will also install all required dependencies, including common ones like ``numpy``, ``pandas``,
 ``astropy``, ``astroquery``, and less common ones like ``rocks``, the `client <https://rocks.readthedocs.io>`_ to the `SsODNet database <https://ssp.imcce.fr/webservices/ssodnet/>`_ of minor body data, and ``jwst_gtvt``, the `JWST General Target Visibility Tool <https://jwst-docs.stsci.edu/jwst-other-tools/jwst-target-visibility-tools/jwst-general-target-visibility-tool-help>`_.
 
 After installing ``jayrock``, you can check that it installed correctly by running
 
-.. code-block:: python
+.. prompt:: python
+   :prompts: >>>
 
-   >>> import jayrock  # lines starting with >>> are python commands
+   import jayrock  # lines starting with >>> are python commands
 
 On your first run of a ``jayrock`` script, ``rocks`` might ask to `download data to a cache directory <https://rocks.readthedocs.io/en/latest/ssodnet.html#data-stored-on-your-machine>`_.
 Confirm by typing ``y`` and pressing enter.

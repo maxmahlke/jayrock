@@ -79,11 +79,14 @@ Some frequently used properties are directly accessible from the ``Observation``
 Identifying saturation
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Some wavelengths in the example above are partially saturated. We see this in
-multiple places: (1) the warning written to the console during the simulation
-(identical to all warnings printed in the online ETC), (2) the orange colouring
-and written "! SAT !" warnings in the SNR plot, and (3) when inspecting the
-report:
+If the detector saturates during the observation, this is indicated in multiple ways.
+
+(1) Warnings are written to the console during the simulation (see above)
+
+(2) The saturated wavelengths are coloured in orange in the SNR plot, and
+    "! SAT !" is written above them (see above)
+
+(3) The report has different attributes to identify saturated pixels:
 
 .. code-block:: python
 
@@ -103,6 +106,7 @@ Each observation uses one specific instrument configuration. To simulate
 observations of the same target with different configurations, simply use a loop.
 This is especially useful for MIRI MRS, where each aperture and disperser
 needs to be simulated separately.
+
 
 .. code-block:: python
 
@@ -131,6 +135,8 @@ You can then plot the SNRs of all observations together:
          :class: only-dark
          :align: center
          :width: 100%
+
+See the :ref:`MIRI MRS example <miri-mrs-example>` for a practical implementation.
 
 Observing on multiple dates
 ---------------------------
@@ -161,3 +167,5 @@ at saturate at the brightest one.
          :width: 100%
 
     If more than one observation is done using the same aperture/disperser/filter combination, the text summarising the detector configuration at the bottom is colour-coded to match the respective SNR curve.
+
+See the :ref:`MIRI MRS example <miri-mrs-example>` for a practical implementation.
