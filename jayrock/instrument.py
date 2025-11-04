@@ -37,7 +37,6 @@ class Detector:
         self._subarray = config["subarray"]
 
         self.instrument = instrument
-        self.mode = mode
 
     @property
     def ngroup(self):
@@ -126,7 +125,7 @@ class Detector:
 
 
 class Instrument:
-    """Define instrument of observation."""
+    """Instrument of observation."""
 
     def __init__(self, instrument, mode, config=None):
         """
@@ -135,102 +134,79 @@ class Instrument:
         instrument : str
             Instrument name (e.g., 'nirspec', 'miri').
         mode : str
-            Observation mode (e.g., 'ifu', 'slit').
+            Observation mode (e.g., 'ifu', 'mrs').
         config : dict, optional
             Configuration dictionary for the instrument. If None, a default configuration will be used.
             Configuration dictionary should be the 'configuration' level of the pandeia calculation config.
         """
-        self.instrument = instrument.lower()
-        self.mode = mode.lower()
+        self._instrument = instrument.lower()
+        self._mode = mode.lower()
 
-        self.config = (
-            config
-            if config is not None
-            else build_default_calc(
-                telescope="jwst", instrument=self.instrument, mode=self.mode
+        if config is not None:
+            self._config = config
+        else:
+            self._config = build_default_calc(
+                telescope="jwst", instrument=self._instrument, mode=self._mode
             )["configuration"]
-        )
+
+        if self._instrument == "nirspec":
+            # set better default
+            self._config["instrument"]["readout_pattern"] = "nrsirs2rapid"
+
+        self.detector = Detector(self._config["detector"], self)
 
     def __repr__(self):
         return f"Instrument(instrument={self.instrument}, mode={self.mode})"
 
+    @property
+    def config(self):
+        """Pandeia instrument config dictionary."""
+        for attr in ["aperture", "disperser", "filter"]:
+            self._config["instrument"][attr] = getattr(self, attr)
+        for attr in ["ngroup", "nint", "nexp", "readout_pattern", "subarray"]:
+            self._config["detector"][attr] = getattr(self.detector, attr)
+        return self._config
+
+    @property
+    def instrument(self):
+        """Write-protected instrument setting."""
+        return self._instrument
+
+    @property
+    def mode(self):
+        """Write-protected mode setting."""
+        return self._mode
+
+    @property
+    def disperser(self):
+        """Disperser used in instrument."""
+        return self._config["instrument"]["disperser"]
+
+    @disperser.setter
+    def disperser(self, disp):
+        self._config["instrument"]["disperser"] = disp.lower()
+
+    @property
+    def filter(self):
+        """Filter used in instrument."""
+        return self._config["instrument"]["filter"]
+
+    @filter.setter
+    def filter(self, filt):
+        self._config["instrument"]["filter"] = filt.lower()
+
+    @property
+    def aperture(self):
+        """Aperture used in instrument."""
+        return self._config["instrument"]["aperture"]
+
+    @aperture.setter
+    def aperture(self, apt):
+        self._config["instrument"]["aperture"] = apt.lower()
+
     def print_config(self):
         """Print the observation configuration."""
         print(json.dumps(self.config, indent=4))
-
-    def estimate_ngroups_for_snr(self, snr, target):
-        """Estimate the number of groups per integration needed to reach a given SNR for a target.
-
-        Parameters
-        ----------
-        snr : float
-            Desired signal-to-noise ratio.
-        target : Target
-            Target to observe
-
-        Notes
-        -----
-        Estimation is based on pre-computed SNR for a sample asteroid.
-        """
-        target_snr = snr
-
-        PATH_GRID = (
-            Path(__file__).parent.parent
-            / "data"
-            / f"{self.instrument}_{self.mode}_snr_grid.csv"
-        )
-
-        if not PATH_GRID.exists():
-            raise NotImplementedError(
-                f"SNR grid for {self.instrument}/{self.mode} not yet available."
-            )
-
-        # The search axes depend on the instrument
-        if self.instrument == "nirspec":
-            flux, flux_target = "mag", target.vmag_min
-
-        elif self.instrument == "miri":
-            flux, flux_target = "logflux", np.log10(target.thermal_flux_max)
-
-        # Load the grid and interpolate
-        snr_grid = pd.read_csv(PATH_GRID)
-        snr_grid = snr_grid.dropna(subset=["snr_mean"])
-
-        if self.instrument == "miri":
-            snr_grid = snr_grid[
-                (snr_grid.channel == int(self.config["instrument"]["aperture"][-1]))
-                & (snr_grid.disperser == self.config["instrument"]["disperser"])
-            ]
-        elif self.instrument == "nirspec":
-            snr_grid = snr_grid[
-                (snr_grid.filter_ == self.config["instrument"]["filter"])
-                & (snr_grid.disperser == self.config["instrument"]["disperser"])
-            ]
-
-        fluxes = np.sort(snr_grid[flux].unique())
-        ngroups = np.sort(snr_grid["ngroup"].unique())
-
-        # Reference calculations were done with nexp = 4
-        scale = np.sqrt(self.config["detector"]["nexp"] / 4)
-        target_snr /= scale  # TODO: Verify this
-
-        # Pivot the table to create the 2D SNR grid
-        snr_grid = snr_grid.pivot(
-            index="ngroup", columns=flux, values="snr_mean"
-        ).values
-
-        # Interpolate 2d grid to find ngroups for given snr and vmag
-        if flux_target < min(fluxes) or flux_target > max(fluxes):
-            jayrock.logging.logger.error(
-                f"{flux_target} is outside the grid range [{min(fluxes)}, {max(fluxes)}]. Cannot estimate ngroups."
-            )
-
-        # Create a 2D spline interpolator for the SNR grid
-        interpolator = RectBivariateSpline(ngroups, fluxes, snr_grid, kx=1, ky=1)
-
-        # For a fixed target_flux, find the range of SNRs possible within the grid's exposure times
-        min_snr_at_flux = interpolator(ngroups[0], flux_target)[0][0]
-        max_snr_at_flux = interpolator(ngroups[-1], flux_target)[0][0]
 
         if min_snr_at_flux >= target_snr:
             jayrock.logging.logger.info(
@@ -263,14 +239,239 @@ class Instrument:
                 "f170lp": 2.415,
                 "f290lp": 4.07,
                 "CLEAR": 3.5,
-            }[self.config["instrument"]["filter"]]
+            }[self.filter]
 
         if self.instrument == "miri":
-            return {
-                "ch1": {"short": 5.335, "medium": 6.16, "long": 7.109},
-                "ch2": {"short": 8.154, "medium": 9.415, "long": 10.85},
-                "ch3": {"short": 12.504, "medium": 14.5, "long": 16.745},
-                "ch4": {"short": 19.29, "medium": 22.485, "long": 26.22},
-            }[self.config["instrument"]["aperture"]][
-                self.config["instrument"]["disperser"]
-            ]
+            if self.mode == "mrs":
+                return {
+                    "ch1": {"short": 5.335, "medium": 6.16, "long": 7.109},
+                    "ch2": {"short": 8.154, "medium": 9.415, "long": 10.85},
+                    "ch3": {"short": 12.504, "medium": 14.5, "long": 16.745},
+                    "ch4": {"short": 19.29, "medium": 22.485, "long": 26.22},
+                }[self.aperture][self.disperser]
+            elif self.mode in ["lrsslit", 'lrsslitless']:
+                return 10.7
+
+    def print_config(self):
+        """Print the observation configuration."""
+        print(json.dumps(self.config, indent=4))
+
+
+    def set_snr_target(self, snr, target, date_obs, wave=None, bounds=None):
+        """Configure detector settings to reach a target SNR.
+
+        Parameters
+        ----------
+        snr : float
+            The SNR to reach.
+        target : jayrock.Target
+            The observation target.
+        date_obs : str
+            The observation date string in YYYY-MM-DD format.
+        wave : float, optional
+            Wavelength in microns at which to optimise the SNR. If None, the
+            reference wavelength of the instrument is used.
+        bounds : dict, optional
+            Optional bounds for detector settings. Valid keys are 'ngroup' and 'nint'.
+            Each key should map to a tuple of (min, max) values.
+
+        Returns
+        -------
+        bool
+            True if the target SNR or higher was achieved, False otherwise (e.g. saturation).
+
+        Notes
+        -----
+        This method modifies the detector's 'ngroup' and 'nint' settings to
+        achieve the desired SNR using a binary search algorithm. It prioritises
+        minimising 'nint'.
+        """
+        # Determine if we are searching for a single target or a range
+        is_range_target = isinstance(snr, (list, tuple))
+        if is_range_target:
+            min_snr, max_snr = snr
+
+        wave = wave if wave is not None else self.reference_wavelength
+        config_override = {"strategy": {"reference_wavelength": wave}}
+        scene = target.build_scene(date_obs)
+
+        # Define search space with defaults
+        bounds = bounds if bounds is not None else {}
+        ngroup_min, ngroup_max = bounds.get("ngroup", (5, 100))
+        nint_min, nint_max = bounds.get("nint", (1, 100))
+
+        # TODO: Separate the logic here into SNR range vs single SNR target functions
+
+        if is_range_target:
+            jayrock.logging.logger.info(
+                f"Searching for minimum ngroup|nint to reach SNR range {min_snr:.1f}-{max_snr:.1f} at {wave:.2f}μm"
+            )
+        else:
+            jayrock.logging.logger.info(
+                f"Searching for minimum ngroup|nint to reach SNR {snr:.1f} at {wave:.2f}μm"
+            )
+
+        def run_obs(nint: int, ngroup: int):
+            """Helper function to run an observation and check for saturation."""
+            self.detector.nint = nint
+            self.detector.ngroup = ngroup
+
+            obs = jayrock.observe(
+                target,
+                self,
+                date_obs=date_obs,
+                scene=scene,
+                config_override=config_override,
+                verbose=False,
+            )
+
+            if any(obs.fully_saturated):
+                jayrock.logging.logger.warning(
+                    f"  nint={nint} | ngroup={ngroup:<3} -> FULL SATURATION."
+                )
+                # Return None to signal saturation
+                return None
+
+            jayrock.logging.logger.info(
+                f"  nint={nint} | ngroup={ngroup:<3} -> SNR={obs.snr:<5.1f} | Texp={obs.texp / 60:.1f}min"
+            )
+            return obs
+
+        # ------
+        # Run search
+        for nint in range(nint_min, nint_max + 1):
+            # Reset ngroup bounds for the binary search
+            ngroup_low = ngroup_min
+            ngroup_high = ngroup_max
+
+            # ------
+            # Check 1: Does the minimum ngroup saturate? Does it reach the target SNR?
+            if nint == nint_min:
+                obs = run_obs(nint, ngroup_min)
+
+                if obs is None:
+                    jayrock.logging.logger.error(
+                        f"Minimum nint/ngroup saturated. Stopping search. Providing parameter 'bounds' might avoid this."
+                    )
+                    return False
+
+                if is_range_target:
+                    if obs.snr >= min_snr:
+                        # Min ngroup already sufficient, done
+                        self.detector.nint = nint
+                        self.detector.ngroup = ngroup_min
+
+                        jayrock.logging.logger.info(
+                            f"Done. Setting ngroup={ngroup_min}, nint={nint}."
+                        )
+                        self.estimated_snr = obs.snr
+                        return True
+                else:
+                    if obs.snr >= snr:
+                        # Min ngroup already sufficient, done
+                        self.detector.nint = nint
+                        self.detector.ngroup = ngroup_min
+
+                        jayrock.logging.logger.info(
+                            f"Done. Setting ngroup={ngroup_min}, nint={nint}."
+                        )
+                        self.estimated_snr = obs.snr
+                        return True
+
+            # ------
+            # Check 2: Can we reach the target SNR with this nint?
+            obs = run_obs(nint, ngroup_max)
+
+            if (
+                obs is not None
+            ):  # if not saturated. if it is, we might have more luck with lower ngroup
+                if is_range_target:
+                    if min_snr <= obs.snr <= max_snr:
+                        # Max ngroup sufficient, done
+                        self.detector.nint = nint
+                        self.detector.ngroup = ngroup_max
+
+                        jayrock.logging.logger.info(
+                            f"Done. Setting ngroup={ngroup_max}, nint={nint}."
+                        )
+                        self.estimated_snr = obs.snr
+                        return True
+                    if obs.snr < min_snr:
+                        continue  # Max ngroup is still too low, try next nint
+                else:
+                    if obs.snr < snr:
+                        continue  # Max ngroup is still too low, try next nint
+
+            # Binary Search on ngroup: Find the minimum ngroup that yields SNR >= snr
+            while ngroup_low < ngroup_high:
+                # Check for convergence protection
+                if ngroup_low == ngroup_high - 1:
+                    # If only two discrete values remain, test the lower one first.
+                    # This ensures we find the *minimum* that satisfies the condition.
+                    obs = run_obs(nint, ngroup_low)
+
+                    if obs is None:
+                        ngroup_high = ngroup_low
+                        break  # use the lower value
+                    if is_range_target:
+                        if min_snr <= obs.snr <= max_snr:
+                            # Max ngroup sufficient, done
+                            self.detector.nint = nint
+                            self.detector.ngroup = ngroup_low
+                            self.estimated_snr = obs.snr
+
+                            jayrock.logging.logger.info(
+                                f"Done. Setting ngroup={ngroup_low}, nint={nint}."
+                            )
+                        return True
+                        if obs.snr >= max_snr:
+                            ngroup_high = ngroup_low
+                            break  # use the lower value
+                    else:
+                        if obs.snr >= snr:
+                            ngroup_high = ngroup_low
+                            break  # use the lower value
+                    break  # use the higher value
+
+                # Try mid-point ngroup
+                ngroup_mid = (ngroup_low + ngroup_high) // 2
+                obs = run_obs(nint, ngroup_mid)
+
+                if is_range_target:
+                    if min_snr <= obs.snr <= max_snr:
+                        # Max ngroup sufficient, done
+                        self.detector.nint = nint
+                        self.detector.ngroup = ngroup_mid
+                        self.estimated_snr = obs.snr
+
+                        jayrock.logging.logger.info(
+                            f"Done. Setting ngroup={ngroup_mid}, nint={nint}."
+                        )
+                        return True
+                    if obs.snr < min_snr:
+                        # SNR too low, increase ngroup. Search upper half of
+                        # current interval
+                        ngroup_low = ngroup_mid + 1
+                    else:
+                        # SNR is sufficient, try lower ngroup to minimise time.
+                        # Search lower half of current interval
+                        ngroup_high = ngroup_mid
+                else:
+                    if obs.snr < snr:
+                        # SNR too low, increase ngroup. Search upper half of
+                        # current interval
+                        ngroup_low = ngroup_mid + 1
+                    else:
+                        # SNR is sufficient, try lower ngroup to minimise time.
+                        # Search lower half of current interval
+                        ngroup_high = ngroup_mid
+
+            # Done. Update detector settings
+            self.detector.nint = nint
+            self.detector.ngroup = ngroup_high
+
+            jayrock.logging.logger.info(
+                f"Done. Setting ngroup={ngroup_high}, nint={nint}."
+            )
+            self.estimated_snr = obs.snr
+            return True
