@@ -1,17 +1,17 @@
-import warnings
-from copy import deepcopy
-
+import collections.abc
 import json
+from copy import deepcopy
+import warnings
+
 import numpy as np
 from pandeia.engine.calc_utils import build_default_calc
 from pandeia.engine.perform_calculation import perform_calculation
 
 import jayrock
 
-import collections.abc
-
 
 def update(d, u):
+    """Recursively update a dictionary. Used to update config dictionaries."""
     for k, v in u.items():
         if isinstance(v, collections.abc.Mapping):
             d[k] = update(d.get(k, {}), v)
