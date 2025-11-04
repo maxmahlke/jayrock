@@ -1,7 +1,7 @@
 """For JWST observations of space rocks."""
 
 # Welcome to jayrock
-__version__ = "0.1"
+__version__ = "0.0.1"
 
 from . import neatm, plotting
 from .logging import set_log_level  # noqa
