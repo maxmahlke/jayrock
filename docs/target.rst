@@ -156,7 +156,7 @@ You can override the default values using the dot-notation.
 Exporting and plotting
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Export the full spectrum or individual components (e.g. for verification of the calculation with the online ETC):
+Export the full spectrum or individual components (e.g. for verification with the online ETC):
 
 .. code-block:: python
 
@@ -171,15 +171,17 @@ Plot the spectrum of a target at a given ``date_obs``:
 
   luisa.plot_spectrum(date_obs='2027-12-24')
 
-.. image:: gfx/luisa_spectrum.png
-   :class: only-light
-   :align: center
-   :width: 600
+.. dropdown:: Show Figure
 
-.. image:: gfx/luisa_spectrum_dark.png
-   :class: only-dark
-   :align: center
-   :width: 600
+  .. image:: gfx/luisa_spectrum.png
+     :class: only-light
+     :align: center
+     :width: 600
+
+  .. image:: gfx/luisa_spectrum_dark.png
+     :class: only-dark
+     :align: center
+     :width: 600
 
 You can provide a list of ``date_obs`` to compare the fluxes at different dates.
 
@@ -189,12 +191,14 @@ You can provide a list of ``date_obs`` to compare the fluxes at different dates.
   date_vmag_max = luisa.get_date_obs(at='vmag_max')
   luisa.plot_spectrum(date_obs=[date_vmag_min, date_vmag_max])
 
-.. image:: gfx/luisa_spectra.png
-   :class: only-light
-   :align: center
-   :width: 600
+.. dropdown:: Show Figure
 
-.. image:: gfx/luisa_spectra_dark.png
-   :class: only-dark
-   :align: center
-   :width: 600
+  .. image:: gfx/luisa_spectra.png
+     :class: only-light
+     :align: center
+     :width: 600
+
+  .. image:: gfx/luisa_spectra_dark.png
+     :class: only-dark
+     :align: center
+     :width: 600

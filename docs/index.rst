@@ -111,7 +111,7 @@ spectrum at different dates, use the ``plot_spectrum()`` method.
 :octicon:`zap;1em` **Compute SNRs for many instrument configurations. Define SNR targets.**
 
 Simulate observations with different instruments, modes, filters and
-dispersers, conventiently in a loop. Specify exposure times or define SNR
+dispersers, conveniently in a loop. Specify exposure times or define SNR
 target values and let ``jayrock`` configure the detector. Computations run
 locally using ``pandeia`` -- no need for the browser.
 
@@ -148,17 +148,19 @@ locally using ``pandeia`` -- no need for the browser.
         # Plot SNR over wavelength
         jayrock.plot_snr(observations)
 
-     *Simulated SNR over wavelength for NIRSpec IFU. Click to zoom.*
+     .. dropdown:: Show Figure
 
-     .. image:: gfx/achilles_nirspec.png
-        :class: only-light
-        :align: center
-        :width: 100%
+       *Simulated SNR over wavelength for NIRSpec IFU. Click to zoom.*
 
-     .. image:: gfx/achilles_nirspec_dark.png
-        :class: only-dark
-        :align: center
-        :width: 100%
+       .. image:: gfx/achilles_nirspec.png
+          :class: only-light
+          :align: center
+          :width: 100%
+
+       .. image:: gfx/achilles_nirspec_dark.png
+          :class: only-dark
+          :align: center
+          :width: 100%
 
    .. tab-item:: Setting SNR targets
 
@@ -206,17 +208,19 @@ locally using ``pandeia`` -- no need for the browser.
          # Plot SNR over wavelength
          jayrock.plot_snr(observations)
 
-      *Simulated SNR over wavelength for MIRI MRS. All channels have the requested SNRs at their reference wavelengths. Click to zoom.*
+      .. dropdown:: Show Figure
 
-      .. image:: gfx/achilles_miri.png
-         :class: only-light
-         :align: center
-         :width: 100%
+        *Simulated SNR over wavelength for MIRI MRS. All channels have the requested SNRs at their reference wavelengths. Click to zoom.*
 
-      .. image:: gfx/achilles_miri_dark.png
-         :class: only-dark
-         :align: center
-         :width: 100%
+        .. image:: gfx/achilles_miri.png
+           :class: only-light
+           :align: center
+           :width: 100%
+
+        .. image:: gfx/achilles_miri_dark.png
+           :class: only-dark
+           :align: center
+           :width: 100%
 
 
 .. rubric:: Footnotes
