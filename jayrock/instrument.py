@@ -245,13 +245,12 @@ class Instrument:
                     "ch3": {"short": 12.504, "medium": 14.5, "long": 16.745},
                     "ch4": {"short": 19.29, "medium": 22.485, "long": 26.22},
                 }[self.aperture][self.disperser]
-            elif self.mode in ["lrsslit", 'lrsslitless']:
+            elif self.mode in ["lrsslit", "lrsslitless"]:
                 return 10.7
 
     def print_config(self):
         """Print the observation configuration."""
         print(json.dumps(self.config, indent=4))
-
 
     def set_snr_target(self, snr, target, date_obs, wave=None, bounds=None):
         """Configure detector settings to reach a target SNR.
