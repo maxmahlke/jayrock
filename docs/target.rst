@@ -56,6 +56,10 @@ To get a high-level overview, use the ``print_ephemeris()`` method:
    those obtained here with ``jwst_mtvt`` (order of one day). The APT has the
    final authority.
 
+The queries to JPL Horizons are executed with ``astroquery`` and use the
+`built-in cache system
+<https://astroquery.readthedocs.io/en/latest/#caching>`_. By default, the cache
+resets after 7 days.
 
 Select a date of observation
 ----------------------------

@@ -49,7 +49,7 @@ class PatchedEphemeris(Ephemeris):
         )
 
         # https://ssd.jpl.nasa.gov/horizons/manual.html#output
-        eph = obj.ephemerides(cache=False, quantities="1,9,19,20,24,36")
+        eph = obj.ephemerides(cache=True, quantities="1,9,19,20,24,36")
 
         self.dataframe["ra"] = eph["RA"].data.data
         self.dataframe["dec"] = eph["DEC"].data.data
