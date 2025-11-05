@@ -12,8 +12,8 @@ URLS = {
         "dither": "https://jwst-docs.stsci.edu/jwst-near-infrared-spectrograph/nirspec-operations/nirspec-dithers-and-nods",
     },
     "miri": {
-        "dither": "https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument/miri-operations/miri-dithering"
-        "detector": "https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument/miri-observing-strategies"
+        "dither": "https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument/miri-operations/miri-dithering",
+        "detector": "https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument/miri-observing-strategies",
     },
 }
 
