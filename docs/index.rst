@@ -225,7 +225,7 @@ locally using ``pandeia`` -- no need for the browser.
 
 .. rubric:: Footnotes
 
-.. [#f1] Latest version: 0.0.1  - `What's new? <https://github.com/maxmahlke/jayrock/blob/master/CHANGELOG.md>`_  | Bug or feature request? Open an issue on `GitHub <https://github.com/maxmahlke/jayrock/issues>`_ or send me an email.
+.. [#f1] Latest version: 0.0.2  - `What's new? <https://github.com/maxmahlke/jayrock/blob/master/CHANGELOG.md>`_  | Bug or feature request? Open an issue on `GitHub <https://github.com/maxmahlke/jayrock/issues>`_ or send me an email.
 
 .. [#f2] This example does not account for the fact that channels 1/2 and 3/4 use the same detectors and therefore need to have the same ``ngroup``/``nint`` settings in their ``short``, ``medium``, and ``long`` dispersers.
 
