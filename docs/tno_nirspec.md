@@ -487,6 +487,8 @@ plt.show()
   :class: only-dark
   :align: center
   :figwidth: 80%
+
+  **Fig. 5:** *Total exposure time to reach SNR=40-50 at 3μm versus apparent V magnitude for 149 classical TNOs during JWST Cycle 6.*
 ```
 
 ```{figure} gfx/tno_nirspec_exptime.png
