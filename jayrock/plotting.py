@@ -53,50 +53,22 @@ def plot_snr(obs, show=True, save_to=None):
     else:
         observations = obs
 
-    fig, ax = plt.subplots(figsize=(17, 10), constrained_layout=True)
-    COLORS = get_colors(len(observations) + 1, cmap="coolwarm")
-    # drop middle colour to make sure it's never white
-    COLORS.pop(len(COLORS) // 2)
+    fig, ax = plt.subplots(constrained_layout=True)
+    if len(observations) > 2:
+        COLORS = get_colors(len(observations), cmap="managua")[::-1]
+    else:
+        COLORS = ["steelblue", "firebrick"]
 
     elems_labels = []
 
     # ------
     # Add SNRs
-    text_settings = {}
+    # text_settings = {}
     for obs_idx, obs in enumerate(observations):
         inst = obs.instrument
         elems_labels.append(
             (min(obs.wave), (inst.name, inst.mode, inst.primary, inst.secondary))
         )
-
-        # Plot SNR
-        ax.scatter(obs.wave, obs.snr_1d, s=3, color=COLORS[obs_idx])
-
-        if any(obs.partially_saturated):
-            ax.scatter(
-                obs.wave[obs.partially_saturated],
-                obs.snr_1d[obs.partially_saturated],
-                s=3,
-                ec="orange",
-                fc="none",
-            )
-            ax.text(
-                np.mean(obs.wave),
-                obs.snr_1d.max(),
-                "! SAT !",
-                color="orange",
-                ha="center",
-            )
-
-        if any(obs.fully_saturated):
-            ax.text(np.mean(obs.wave), obs.snr_1d.max(), "! SAT !", color="purple")
-            ax.scatter(
-                obs.wave[obs.fully_saturated],
-                obs.snr_1d[obs.fully_saturated],
-                s=3,
-                ec="purple",
-                fc="none",
-            )
 
         # Add information
         ngroup = f"ngroup={obs.instrument.detector.ngroup}"
@@ -108,54 +80,64 @@ def plot_snr(obs, show=True, save_to=None):
 
         desc = " · ".join([ngroup, nint, nexp, texp])
 
-        # Append label to plot later
-        key = (inst.primary, inst.secondary)
-        if key not in text_settings:
-            text_settings[key] = []
-        text_settings[key].append([np.min(obs.wave), desc, COLORS[obs_idx]])
+        # Plot SNR
+        ax.scatter(obs.wave, obs.snr_1d, s=3, color=COLORS[obs_idx], label=desc)
 
-    for (elem1, elem2), settings in text_settings.items():
-        opts = dict(
-            ha="left",
-            va="bottom",
-            rotation=270,
-            bbox=dict(facecolor="white", alpha=0.5, edgecolor="white"),
-        )
-        if len(settings) == 1:
-            wave, desc, color = settings[0]
+        if any(obs.partially_saturated):
+            ax.scatter(
+                obs.wave[obs.partially_saturated],
+                obs.snr_1d[obs.partially_saturated],
+                color="orange",
+                alpha=0.3,
+                zorder=-100,
+                marker="s",
+                s=40,
+            )
+            ax.text(
+                0.05,
+                1.01,
+                "! Partial Saturation !",
+                ha="left",
+                va="bottom",
+                color="orange",
+                transform=ax.transAxes,
+            )
 
-            ax.text(wave, 0.02, desc, transform=ax.get_xaxis_transform(), **opts)
-        else:
-            for i, (wave, desc, color) in enumerate(settings):
-                ax.text(
-                    np.min(wave) * (1.00 + 0.03 * i),
-                    0.02,
-                    desc,
-                    transform=ax.get_xaxis_transform(),
-                    color=color,
-                    **opts,
-                )
+        if any(obs.fully_saturated):
+            ax.scatter(
+                obs.wave[obs.fully_saturated],
+                obs.snr_1d[obs.fully_saturated],
+                color="purple",
+                alpha=0.3,
+                zorder=-100,
+                marker="s",
+                s=40,
+            )
+            ax.text(
+                0.95,
+                1.01,
+                "! Full Saturation !",
+                ha="right",
+                color="purple",
+                transform=ax.transAxes,
+            )
 
     # ------
     # For all aperture, disperser, filter pairs, indicate their position
     for wave, (inst, mode, elem1, elem2) in set(elems_labels):
-        ax.axvline(wave, ls="--", c="black", lw=0.5)
-        opts = dict(va="top", rotation=270, ha="left", color="black")
-        label = f"{mode}/{elem1}/{elem2}"
-        ax.text(wave, 0.95, label, transform=ax.get_xaxis_transform(), **opts)
-
-    # ------
-    # Add observation parameters to title
-    targets = set(obs.target.name for obs in observations)
-    insts = set(obs.instrument.name for obs in observations)
-    ax.set_title(f"{'/'.join(insts)} observation of {' and '.join(targets)}")
+        ax.axvline(wave, ls="-", c="black", lw=0.5)
+        opts = dict(va="bottom", rotation=270, ha="left", color="black")
+        label = f"{elem1}/{elem2}"
+        ax.text(wave, 0.03, label, transform=ax.get_xaxis_transform(), **opts)
 
     if any(obs.instrument.instrument == "miri" for obs in observations):
         ax.set_yscale("log")
+    else:
+        ax.legend()  # for non-MIRI observations, show legend. for MIRI, too crowded
 
     ax.set(xlabel=r"Wavelength / micron", ylabel="SNR")
-    ax.grid(which="major", ls="-", c="gray", axis="y")
-    ax.grid(which="minor", ls=":", c="gray", axis="y")
+    ax.grid(which="major", ls="--", c="gray", axis="y", lw=0.4)
+    ax.grid(which="minor", ls=":", c="gray", axis="y", lw=0.4)
 
     if show:
         plt.show()
