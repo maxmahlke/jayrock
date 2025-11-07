@@ -569,9 +569,20 @@ class Target:
             Whether to plot the reflectance spectrum. Default is True.
         thermal : bool, optional
             Whether to plot the thermal spectrum. Default is True.
-        """
+        show : bool, optional
+            Whether to show the plot. Default is True.
+        save_to : str, optional
+            Path to save the plot. Default is None.
 
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The figure object.
+        matplotlib.axes.Axes
+            The axes object.
+        """
         if not hasattr(self, "ephemeris"):
             raise AttributeError("Run compute_ephemeris() before plot_spectrum().")
 
-        jayrock.plotting.plot_spectrum(self, **kwargs)
+        fig, ax = jayrock.plotting.plot_spectrum(self, **kwargs)
+        return fig, ax

@@ -191,7 +191,9 @@ def compare_observations(obs, which="snr", label=None):
     fig.savefig(ob.PATH_INST / f"compare_{which}_{label}.png")
 
 
-def plot_spectrum(target, date_obs, reflected=True, thermal=True):
+def plot_spectrum(
+    target, date_obs, reflected=True, thermal=True, show=True, save_to=None
+):
     """Plot the spectrum of the target.
 
     Parameters
@@ -204,9 +206,18 @@ def plot_spectrum(target, date_obs, reflected=True, thermal=True):
         Whether to plot the reflectance spectrum. Default is True.
     thermal : bool, optional
         Whether to plot the thermal spectrum. Default is True.
-    """
-    plt.style.use("default")
+    show : bool, optional
+        Whether to show the plot. Default is True.
+    save_to : str, optional
+        Path to save the plot. Default is None.
 
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The figure object.
+    matplotlib.axes.Axes
+        The axes object.
+    """
     if not isinstance(date_obs, list):
         date_obs = [date_obs]
 
@@ -238,5 +249,8 @@ def plot_spectrum(target, date_obs, reflected=True, thermal=True):
         ax.set_yscale("log")
         ax.set_ylim(bottom=min(flux_refl) * 0.8)
     ax.legend()
-    ax.grid()
-    plt.show()
+    if save_to is not None:
+        fig.savefig(save_to)
+    if show:
+        plt.show()
+    return fig, ax
