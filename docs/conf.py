@@ -45,7 +45,18 @@ extensions = [
     "hoverxref.extension",
     "sphinx_design",
     "sphinx_copybutton",
+    "myst_parser",
+    "sphinx_togglebutton",
 ]
+
+myst_enable_extensions = [
+    "amsmath",
+    "colon_fence",
+    "deflist",
+    "dollarmath",
+    "html_image",
+]
+myst_url_schemes = ("http", "https", "mailto")
 
 # Print out todos in documentation?
 todo_include_todos = True
@@ -82,10 +93,10 @@ hoverxref_version = "latest"
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-# html_theme = "sphinx_redactor_theme"
-# html_theme_path = [sphinx_redactor_theme.get_html_theme_path()]
-html_theme = "furo"
+html_theme = "sphinx_book_theme"
 html_static_path = ["_static"]
+# html_logo = "_static/logo_jayrock.svg"
+html_title = "jayrock Documentation"
 
 pygments_style = "nord"
 pygments_dark_style = "nord-darker"
@@ -93,15 +104,20 @@ pygments_dark_style = "nord-darker"
 html_show_copyright = False
 html_show_sphinx = False
 
-
 html_theme_options = {
-    "sidebar_hide_name": True,
-    "navigation_with_keys": True,
-    # "top_of_page_button": None,
-    "light_logo": "logo_jayrock.svg",
-    "dark_logo": "logo_jayrock_dark.svg",
+    "logo": {
+        "image_light": "_static/logo_jayrock.svg",
+        "image_dark": "_static/logo_jayrock_dark.svg",
+    },
+    # "light_logo": "logo_jayrock.svg",
+    # "dark_logo": "logo_jayrock_dark.svg",
+    "repository_url": "https://github.com/maxmahlke/jayrock",
+    "use_repository_button": True,
+    "use_sidenotes": False,
+    "show_toc_level": 3,
 }
 
+html_last_upadted_fmt = "%b %d, %Y"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

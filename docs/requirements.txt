@@ -1,4 +1,4 @@
-furo
+sphinx-book-theme
 jinja2
 sphinx-hoverxref
 sphinx-redactor-theme
