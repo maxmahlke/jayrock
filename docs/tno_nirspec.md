@@ -498,6 +498,8 @@ plt.show()
 ```
 
 On average, the IFU requires 2.2 times longer exposure times than Fixed Slit to reach the same SNR.
+The step-pattern in the exposure times is due to the discrete nature of the
+``ngroup`` and ``nint`` settings.
 
 ---
 
