@@ -1,6 +1,6 @@
 [project]
 name = "jayrock"
-version = "0.0.2"
+version = "0.0.3"
 description = "JWST observations planning for asteroids."
 authors = [{name="Max Mahlke", email="max.mahlke@rwth-aachen.de"}]
 license = "MIT"
