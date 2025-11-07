@@ -46,7 +46,7 @@ extensions = [
     "sphinx_design",
     "sphinx_copybutton",
     "myst_parser",
-    "sphinx_togglebutton",
+    "sphinx-togglebutton",
 ]
 
 myst_enable_extensions = [
