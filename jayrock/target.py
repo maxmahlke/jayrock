@@ -154,6 +154,7 @@ class Target:
 
         # Only use dates when target is in field of regard
         vis = eph.dataframe.loc[eph.dataframe["in_FOR"]].copy().reset_index(drop=True)
+        vis = vis.rename(columns={"V": "vmag"})
 
         # ------
         # Add thermal flux
@@ -187,7 +188,7 @@ class Target:
                 "date_obs",
                 "ra",
                 "dec",
-                "V",
+                "vmag",
                 "rh",
                 "delta",
                 "phase",
@@ -198,8 +199,8 @@ class Target:
             ]
         ]
 
-        self.vmag_min = self.ephemeris.V.min()
-        self.vmag_max = self.ephemeris.V.max()
+        self.vmag_min = self.ephemeris.vmag.min()
+        self.vmag_max = self.ephemeris.vmag.max()
 
         self.is_visible = len(self.ephemeris) > 0
 
@@ -264,7 +265,7 @@ class Target:
             )
             branch.add(f"{'Duration':<17}{len(window)} days")
             branch.add(
-                f"{'Vmag':<17}{window['V'].values[0]:.2f} -> {window['V'].values[-1]:.2f}"
+                f"{'Vmag':<17}{window['vmag'].values[0]:.2f} -> {window['vmag'].values[-1]:.2f}"
             )
             branch.add(
                 f"{'Thermal @ 15um':<17}{window['thermal'].values[0]:.2f} -> {window['thermal'].values[-1]:.2f} mJy"
@@ -288,7 +289,7 @@ class Target:
             Source configuration dictionary to be passed to the pandeia.
         """
         self.vmag_date_obs = self.ephemeris.loc[
-            self.ephemeris.date_obs == date_obs, "V"
+            self.ephemeris.date_obs == date_obs, "vmag"
         ].values[0]
 
         # TODO: Make this configurable
@@ -472,7 +473,6 @@ class Target:
                     )
 
                 prop, cond = at_.split("_")
-                prop = "V" if prop == "vmag" else "thermal"
 
                 if cond == "min":
                     idx = self.ephemeris[prop].idxmin()
