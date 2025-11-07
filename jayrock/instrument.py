@@ -143,7 +143,6 @@ class Detector:
         )
 
 
-
 class Instrument:
     """Instrument of observation."""
 
@@ -244,30 +243,6 @@ class Instrument:
         """Return secondary optical element of the instrument."""
         return {"nirspec": self.filter, "miri": self.disperser}[self.instrument]
 
-    @property
-    def reference_wavelength(self):
-        """Return the reference wavelength of the instrument in microns."""
-
-        if self.instrument == "nirspec":
-            return {
-                "f070lp": 1.11,
-                "f100lp": 1.43,
-                "f170lp": 2.415,
-                "f290lp": 4.07,
-                "CLEAR": 3.5,
-            }[self.filter]
-
-        if self.instrument == "miri":
-            if self.mode == "mrs":
-                return {
-                    "ch1": {"short": 5.335, "medium": 6.16, "long": 7.109},
-                    "ch2": {"short": 8.154, "medium": 9.415, "long": 10.85},
-                    "ch3": {"short": 12.504, "medium": 14.5, "long": 16.745},
-                    "ch4": {"short": 19.29, "medium": 22.485, "long": 26.22},
-                }[self.aperture][self.disperser]
-            elif self.mode in ["lrsslit", "lrsslitless"]:
-                return 10.7
-
     def print_config(self):
         """Print the observation configuration."""
         print(json.dumps(self.config, indent=4))
@@ -306,7 +281,7 @@ class Instrument:
         if is_range_target:
             min_snr, max_snr = snr
 
-        wave = wave if wave is not None else self.reference_wavelength
+        wave = wave if wave is not None else self.detector.midpoint
         config_override = {"strategy": {"reference_wavelength": wave}}
         scene = target.build_scene(date_obs)
 

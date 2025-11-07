@@ -96,7 +96,7 @@ class Target:
         if not self.rock.diameter:
             self.rock.diameter.value = 30
             jayrock.logging.logger.warning(
-                f"No diameter value on record for {self.name}. Using default of 30."
+                f"No diameter value on record for {self.name}. Using default of 30km."
             )
 
         self.albedo = self.rock.albedo.value
@@ -107,7 +107,9 @@ class Target:
     def __repr__(self):
         return f"Target(name={self.name})"
 
-    def compute_ephemeris(self, cycle=None, date_start=None, date_end=None):
+    def compute_ephemeris(
+        self, cycle=None, date_start=None, date_end=None, thermal=True
+    ):
         """Compute target ephemeris using jwst mtvt and JPL Horizons.
 
         Parameters
@@ -121,6 +123,8 @@ class Target:
         date_end : str, optional
             End date of the observation in ISO format (YYYY-MM-DD). Can be
             omitted if cycle is given. Default is None.
+        thermal : bool, optional
+            Whether to compute thermal fluxes. Default is True.
 
         Notes
         -----
@@ -153,16 +157,19 @@ class Target:
 
         # ------
         # Add thermal flux
-        target_neatm = self.compute_neatm()
+        if thermal:
+            target_neatm = self.compute_neatm()
 
-        # Thermal flux at 15 micron in mJy
-        vis["thermal"] = vis.apply(
-            lambda row: target_neatm.fluxd(
-                wave=15,
-                geometry=dict(rh=row["rh"], delta=row["delta"], phase=row["phase"]),
-            ),
-            axis=1,
-        )
+            # Thermal flux at 15 micron in mJy
+            vis["thermal"] = vis.apply(
+                lambda row: target_neatm.fluxd(
+                    wave=15,
+                    geometry=dict(rh=row["rh"], delta=row["delta"], phase=row["phase"]),
+                ),
+                axis=1,
+            )
+        else:
+            vis["thermal"] = np.nan
 
         # ------
         # Add convenience columns and attributes
