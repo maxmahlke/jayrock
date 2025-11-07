@@ -1,19 +1,21 @@
 # Observing TNOs with NIRSpec
 
-In this tutorial we learn
-
-- query the JWST archive to learn from previous programmes
-
-After DiSCo comes CoFFEe (**Co**\ mparison of **F**\ luxes, **F**\ easibility, and
-**E**\ xposure times with nirsp\ **e**\ c):[^1] Let's take TNOs from different dynamical
-populations and observe them with different NIRSpec modes.
+After DiSCo comes CoFFEe (**Co**mparison of **F**luxes, **F**easibility, and
+**E**xposure times with NIRSp**e** c):[^1] We investigate the observability of
+hot and cold classicals with different NIRSpec IFU and Fixed Slit.
 
 We need the following packages.
 
 ```python
-import matplotlib.pyplot as plt
-import rocks
+
+from astroquery.jplhorizons import Horizons
+from astroquery.mast.missions import MastMissions
+from astropy.time import Time
 import jayrock
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import rocks
 ```
 
 ## Learning from experience: The MAST Archive
@@ -505,4 +507,4 @@ The choice of IFU vs Fixed Slit will depend on the positional uncertainty of eac
 and the available observing time.
 
 
-[^1]: An admittedly forced acronym to underline the importance of coffee when after long nights of disco and/or planning observations.
+[^1]: Acronym underlining the importance of coffee when after long nights of disco and/or planning observations.
