@@ -7,7 +7,6 @@ hot and cold classicals with different NIRSpec IFU and Fixed Slit.
 We need the following packages.
 
 ```python
-
 from astroquery.jplhorizons import Horizons
 from astroquery.mast.missions import MastMissions
 from astropy.time import Time
