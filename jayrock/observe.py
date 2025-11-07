@@ -76,9 +76,9 @@ class Observation:
         with open(filename, "w") as f:
             json.dump(config, f, indent=4)
 
-    def plot_snr(self):
+    def plot_snr(self, **kwargs):
         """Plot the SNR as a function of wavelength."""
-        return jayrock.plotting.plot_snr(self)
+        return jayrock.plotting.plot_snr(self, **kwargs)
 
 
 def observe(
@@ -135,7 +135,7 @@ def observe(
     config["scene"] = scene if scene is not None else target.build_scene(date_obs)
 
     # Strategy and background for SNR calculation
-    config["strategy"]["reference_wavelength"] = instrument.reference_wavelength
+    config["strategy"]["reference_wavelength"] = instrument.detector.midpoint
     config["background_level"] = "none"
 
     if config_override is not None:
