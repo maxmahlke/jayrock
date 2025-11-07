@@ -1,6 +1,6 @@
 sphinx-book-theme
 myst_parser
-sphinx-togglebutton
+sphinx_togglebutton
 jinja2
 sphinx-hoverxref
 sphinx-redactor-theme
