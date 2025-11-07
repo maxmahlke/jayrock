@@ -123,6 +123,26 @@ class Detector:
 
         self._readout_pattern = rdpt
 
+    @property
+    def midpoint(self):
+        """Return the midpoint wavelength of the detector in microns."""
+        inst = InstrumentFactory(config=self.instrument.config)
+        if self.instrument.instrument == "nirspec":
+            range_ = self.subarray if self.instrument.mode != "ifu" else "ifu"
+        else:
+            range_ = self.instrument.aperture  # mrs
+
+            if self.instrument.mode in ["lrsslit", "lrsslitless"]:
+                return np.mean([inst.range[range_][key] for key in ["wmin", "wmax"]])
+
+        return np.mean(
+            [
+                inst.range[range_][self.instrument.secondary][key]
+                for key in ["wmin", "wmax"]
+            ]
+        )
+
+
 
 class Instrument:
     """Instrument of observation."""
