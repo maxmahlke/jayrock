@@ -1,8 +1,8 @@
 # Observing TNOs with NIRSpec
 
 After DiSCo comes CoFFEe (**Co**mparison of **F**luxes, **F**easibility, and
-**E**xposure times with NIRSp**e** c):[^1] We investigate the observability of
-hot and cold classicals with different NIRSpec IFU and Fixed Slit.
+**E**xposure times with NIRSp**e**c):[^1] We investigate the observability of
+hot and cold classicals with NIRSpec IFU and Fixed Slit.
 
 We need the following packages.
 
@@ -48,7 +48,7 @@ This dataframe contains a lot of interesting information:
 ```
 
 A common issue in these databases is that minor body names (here in the
-``target_name`` column) are written in different manners (e.g. ``2000ny27``,
+``targprop`` column) are written in different manners (e.g. ``2000ny27``,
 ``2000_ny27``, ``2000 NY27``). We use ``rocks.id`` to get uniformly formatted designations
 and numbers.
 
@@ -200,7 +200,7 @@ The JPL Horizons queries may time out and cause the script to fail. In this
 case, run the queries in smaller batches and combine the results.
 ```
 
-This loop ran for about 1.5h on my machine. Time for a coffee break.
+This loop ran for about 1.5h on my machine (~4s per target). Time for a coffee break.
 
 ### Distribution of ``n_days_vis``
 
@@ -225,7 +225,7 @@ max       194.000000
 Name: n_days_vis, dtype: float64
 ```
 
-→ The minimum number of visible days is 99 days -- plenty of time. All
+The minimum number of visible days is 99 days -- plenty of time. All
 candidates pass this stage.
 
 ### Distribution of $\sigma_{\textrm{RA}}$ vs $\sigma_{\textrm{Dec}}$
@@ -320,7 +320,7 @@ classicals = classicals[classicals.vmag < 23].reset_index(drop=True)
 
 ## NIRSpec configuration
 
-NIRSpec offers two modes suited for our science case here: Fixed slit and IFU. Fixed Slit offers higher
+NIRSpec offers two modes suited for our science case here: Fixed Slit and IFU. Fixed Slit offers higher
 sensitivity at the price of higher overhead costs due to the required slit alignment, while the IFU is less
 sensitive but is more suited for targets with larger positional uncertainties due to its 3"x3" FoV.
 
@@ -365,12 +365,12 @@ with a fixed instrument configuration, notably 59.3min of total exposure time.
 
 ```python
 for vmag in [19, 20, 21, 22, 23]:
-    tno_vmag25 = classicals.iloc[
+    tno_closest_in_vmag = classicals.iloc[
         (classicals["vmag"] - vmag).abs().argsort()[:1]
     ].squeeze()
 
     # Simulate NIRSpec observation
-    target = jayrock.Target(tno_vmag25["sso_name"])
+    target = jayrock.Target(tno_closest_in_vmag["sso_name"])
     target.compute_ephemeris(cycle=6)
 
     # set larger nint/ngroup
@@ -387,7 +387,8 @@ This yields the following output:
 As the warning tells us, `jayrock` could not find a literature albedo or
 diameter for 2014 DN143 and uses default values instead. We do not care about
 this here as the thermal flux will be negligible either way. However, for
-targets closer to the Sun / JWST, this could be relevant.
+targets closer to the Sun / JWST, this could be relevant, and you should {ref}`set sensible
+values manually <thermal-component>`.
 :::
 
 ```python
@@ -454,8 +455,9 @@ for idx, classical in classicals.iterrows():
 
 This takes a while -- another coffee break is recommended.
 
-After completion, we can compare the required exposure time against apparent V magnitude for IFU and Fixed Slit.
+After completion, we compare the required exposure time against apparent V magnitude for the two modes.
 
+:::{toggle}
 ```python
 fig, ax = plt.subplots()
 ax.scatter(
@@ -482,6 +484,7 @@ ax.set(
 ax.legend()
 plt.show()
 ```
+:::
 
 ```{figure} gfx/tno_nirspec_exptime_dark.png
   :class: only-dark
@@ -506,7 +509,7 @@ The step-pattern in the exposure times is due to the discrete nature of the
 ---
 
 At this point, we have all required information to plan our observations of classical TNOs with NIRSpec.
-The choice of IFU vs Fixed Slit will depend on the positional uncertainty of each target, its brightness,
+The choice of IFU vs Fixed Slit mode for a given target will depend on its positional uncertainty, its brightness,
 and the available observing time.
 
 

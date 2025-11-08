@@ -118,6 +118,8 @@ in the following way:
 :::
 ::::
 
+(thermal-component)=
+
 ### Thermal Component
 
 The thermal component is modelled via the Near-Earth Asteroid Thermal Model (NEATM) by [Harris (1998)](https://ui.adsabs.harvard.edu/abs/1998Icar..131..291H/abstract). The implementation in ``jayrock`` is essentially a copy of the code in Michael Kelley's [``mskpy``](https://github.com/mkelley/mskpy).
