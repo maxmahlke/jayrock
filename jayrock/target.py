@@ -203,6 +203,10 @@ class Target:
         self.vmag_max = self.ephemeris.vmag.max()
 
         self.is_visible = len(self.ephemeris) > 0
+        if not self.is_visible:
+            jayrock.logging.logger.warning(
+                f"{self.name} is not visible between {self.date_start} and {self.date_end}"
+            )
 
         self.n_days_visible = len(self.ephemeris)
         self.n_windows = self.ephemeris["window"].max() if self.is_visible else 0
