@@ -257,6 +257,12 @@ class Target:
         """Print ephemeris of the target."""
         from rich.tree import Tree
 
+        if not self.is_visible:
+            print(
+                f"({self.rock.number}) {self.name}: Not visible during requested date range."
+            )
+            return
+
         tree = Tree(
             f"({self.rock.number}) {self.name}: Ephemeris from {self.date_start} to {self.date_end}",
         )
