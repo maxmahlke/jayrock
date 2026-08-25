@@ -1,6 +1,7 @@
-# 0.0.4 - 2026-06-12
+# 0.0.4 -
 - Print warning if target is not visible during requested window
 - jayrock now correctly installs dependencies when using pip
+- Improve target identification in Horizons query
 
 # 0.0.3 - 2025-11-07
 - Use astroquery cache to speed up repeated Horizons queries

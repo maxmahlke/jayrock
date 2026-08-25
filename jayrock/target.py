@@ -17,13 +17,13 @@ WAVE_GRID = np.arange(0.45, 30, 0.01)
 # Subclass the Ephemeris class to patch the get_moving_target_positions method
 # If the package is open for PRs, these changes may be upstreamed in the future
 class PatchedEphemeris(Ephemeris):
-    def get_moving_target_positions(self, name):
+    def get_moving_target_positions(self, rock):
         """Get ephemeris from JPL/HORIZONS.
 
         Parameters
         ----------
-        name : str
-            Name of target.
+        rocks.Rock
+            The Rock object of the target.
 
         Returns
         -------
@@ -41,12 +41,20 @@ class PatchedEphemeris(Ephemeris):
         start = self.start_date.to_value("iso", subfmt="date")
         stop = self.end_date.to_value("iso", subfmt="date")
 
-        obj = Horizons(
-            id=name,
-            location="500@-170",
-            epochs={"start": start, "stop": stop, "step": "1d"},
-            id_type="asteroid_name",
-        )
+        try:
+            obj = Horizons(
+                id=rock.number if rock.number is not None else rock.name,
+                location="500@-170",
+                epochs={"start": start, "stop": stop, "step": "1d"},
+                id_type="smallbody",
+            )
+        except ValueError:  # ambiguous name
+            obj = Horizons(
+                id=rock.name,
+                location="500@-170",
+                epochs={"start": start, "stop": stop, "step": "1d"},
+                id_type="asteroid_name",
+            )
 
         # https://ssd.jpl.nasa.gov/horizons/manual.html#output
         eph = obj.ephemerides(cache=True, quantities="1,9,19,20,24,36")
@@ -150,7 +158,7 @@ class Target:
             warnings.simplefilter("ignore")
             eph = PatchedEphemeris(start_date=date_start, end_date=date_end)
 
-        eph.get_moving_target_positions(self.name)
+        eph.get_moving_target_positions(self.rock)
 
         # Only use dates when target is in field of regard
         vis = eph.dataframe.loc[eph.dataframe["in_FOR"]].copy().reset_index(drop=True)
