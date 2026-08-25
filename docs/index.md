@@ -10,6 +10,11 @@ Lines starting with `>>>` are python commands.
 import jayrock
 ```
 
+:::{A note on Comets}
+`jayrock` has been written with asteroids in mind, but can also support comets with minor modifications.
+If you are interested in observation planning for comets, please let me know by opening a GitHub issue or via email.
+:::
+
 {octicon}`telescope;1em` **Compute visibility windows and ephemeris.**
 
 After defining the target of your observation, use
