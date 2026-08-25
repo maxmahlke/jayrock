@@ -42,7 +42,6 @@ extensions = [
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.napoleon",
     "sphinx.ext.graphviz",
-    "hoverxref.extension",
     "sphinx_design",
     "sphinx_copybutton",
     "myst_parser",
@@ -83,10 +82,10 @@ graphviz_output_format = "svg"
 #     "term": "tooltip",  # for Python Sphinx Domain
 # }
 
-hoverxref_roles = ["numref", "confval", "setting", "term"]
+# hoverxref_roles = ["numref", "confval", "setting", "term"]
 
-hoverxref_project = "rocks"
-hoverxref_version = "latest"
+# hoverxref_project = "rocks"
+# hoverxref_version = "latest"
 
 # -- Options for HTML output -------------------------------------------------
 
